@@ -1,0 +1,85 @@
+1. Business Context & Objectives
+
+  - What are your primary pain points with the current spreadsheet-based system? - Currently we don't have any tool to manage the freelancer we have, and everything seems to be scattered.
+  - What's the expected scale? How many freelancers do you anticipate managing (hundreds, thousands)? - We have over 4000 freelancers
+  - Who are the primary users? (Ops managers, project managers, finance, freelancers themselves?) - The primary users will be the freelancers and the project managers
+  - What decisions need to be made faster with this tool? - We want to be able to get a picture of the active number of freelancers we have at any given moment so that we can be able to allocate resources efficiently. We also need to know the expertise in our pool
+
+  2. Workflow & Process Flows
+
+  - Freelancer Lifecycle: Walk me through the journey from application → onboarding → active work → payment. What are the gates/approvals? - At the moment, what we do is we have a form that the freelancer will fill to register for the programme, they will receive an automated email with next steps to join slack and create an account on CVAT. They will then proceed with the onboarding training, after they pass the training, they will then be added to our pool where when there is a job they can apply. When they apply for jobs, again they will go through a round of fitment test before they are added to the project only when they pass. Payment is done at the end of each month based on the payment model of the project such as per hour, per asset, per object
+  - Project Assignment Logic: How do you currently match freelancers to projects? (Skills, availability, tier level, past performance?) - Currently, we only use the fitment test to access capability but we want to be able to match based on their skills, tier level, past performance and availability, that is why we need to have all this centralized somewhere.
+  - Quality Assessment: I see onboarding tests with multiple attempts - what triggers a pass/fail? Can freelancers retake indefinitely? No freelancers will not be able to retake indefinitely, only 3 times
+  - Tier System (Platinum/Gold/Silver/Bronze): How is this calculated? Is it purely performance-based or includes other factors? - It is purely performance based. And there are metrics to achieve before one can move from one tier to the other
+
+  3. Performance & Evaluation
+
+  - Consolidated Report metrics - Are COM (soft skills) and QUAL (quality) scores:
+    - Manually entered by reviewers?
+    - Calculated from task data?
+    - A mix of both? - A mix of both
+  - How often are these scores updated? (Real-time, weekly, monthly?) - Daily/Weekly/Monthly
+  - What happens when performance drops? Probation? Retraining? Removal? - When performance drops and after 3 interventions and performance does not improve, you are taken off.
+
+  4. Integrations & Data Sources
+
+  - Do you use external annotation platforms (CVAT, Labelbox, V7)? Do we need to pull data from their APIs? Yes we will need to be able to pull stats from these platforms.
+  - Payment systems: How are freelancers paid? (Per task, hourly, milestone-based?) - based on the project, per hour, per asset, per object
+  - Communication tools: Slack, email, SMS for notifications? - all these applies
+
+  5. Reporting & Analytics
+
+  - What are the critical reports you need daily/weekly/monthly? We need performance on output daily. And quality maybe weekly
+  - Dashboards: Who needs real-time visibility and into what metrics? - Project managers and freelancers
+  - The Monthly Reports file - what's the intended use case? - This is to show performance of freelancers in a given month
+
+  6. Access Control & Security
+
+  - User roles: Admins, Project Managers, Finance, Freelancers - what can each role see/do? Admins should see all, Project managers should be able to add projects and see the freelancers also, you can apply the relevant access control to the other roles
+  - Data privacy concerns: Are there compliance requirements (GDPR, local data laws)? Yes GDPR
+
+  7. Technical Constraints
+
+  - Preferred tech stack? (Web app, mobile, cloud-based?) - Web app and maybe mobile but we can start with web app.
+  - Budget/timeline constraints? Yes, aside from hosting the platform, we have zero budget 
+  - Existing systems we need to integrate with? - no please
+
+
+To build it, can you please provide responses to the following questions: 
+
+1. When you need to search the database for potential freelancers for a project, what are the criteria you would use to search (e.g., annotation area of specialty, years of experience, etc). 
+Domain expertise, country, projects worked on with Aya, Availability, time zone compatibility, past performance ratings, Language proficiency (if relevant to the task),   (Some projects may require more but these are the general ones)
+
+2. When a freelancer completes a project, what are the various criteria you would use to evaluate their performance of the job (e.g., accuracy level, speed, no. of assets completed)
+No. of assets completed, time per task, accuracy level, average hours spent per day, error rates.
+
+3. Where do you currently store information that tracks which projects freelancers have previously worked on and their performance on that specific project?
+Currently this data is stored in the project performance sheet in specific project folders. We are working on centralising this.
+
+4. Are freelancers required to complete certain training or onboarding exercises before being added to our database - who tracks that and where is that tracked?
+Freelancers are added to the database before they start the onboarding exercises and when they are done, they are added to a different channel on slack. 
+
+5. Do you collect information from freelancers on how many hours they may have available to work or is this question asked only when you are ready to engage them on a specific project?
+This is a question we mainly ask when we are recruiting people for a project, that is even before they are ready to be engaged on a project. This ensures only the people with the required availability sign up.
+
+6. Do all freelancers get paid the same amount? If yes, what is that amount? If not, what are the categories and the pay for each category?
+Technically, all freelancers get paid the same amount. The hourly rate is GHC 8.50. The payment model differs for each project where we pay per hour for some or per asset (determined by the tpt against the hourly rate). 
+
+7. If we were to provide you with a platform that can manage freelance workers, what are the key functions you would want it to have so that you could effectively manage them (be as descriptive as possible).
+
+1. Profiles Section: The platform must allow for the creation and management of profiles where each profile will include personal details such as names, email, phone number, country, timezone, skill sets, preferred language, availability (full time, part time). For this section of the profile the freelancer can provide these details. And on the other hand, we can also provide details such as; passed training, level of readiness (Grade A, Grade B, Grade C)
+
+2. Training and Onboarding: Assign required training modules, Track training completion and test scores, Store onboarding documents
+
+3. Project Assignment: The platform should be able to allow managers to assign freelancers to specific projects and set expectations for those projects like how many assets need to be completed in a day, how many hours are required, etc. 
+
+4. Communication and Announcement: The platform should be able to allow admins to send direct messages or announcements to individuals or filtered groups. It should also have a job board where freelancers can see upcoming projects and show interest by registering right on the platform.
+
+5. Performance Tracking: The platform needs a way to track basic performance metrics per freelancer. Focusing on a few metrics like tasks completed, quality score on projects, tpt. This should be visible to the person and all managers. And there should be an ability to tag freelancers based on their performance (eg. Grade A, high error rate, unreliable) so managers can make informed decisions. Also these metrics should be in the freelancer profile where managers can review when going through the people who register for projects.
+
+6. Availability and Scheduling: Since freelancers are not bound to fixed schedules, the platform should allow them to indicate their availability whether on a weekly basis, if they will be unavailable. And if we can also have a feature where a freelancer is immediately set to unavailable when they get assigned to a project. 
+
+7. Financial management: Payment tracking, payment history (This is currently being done on a spreadsheet)
+
+8. Search & Filtering: Search freelancers by skill, language, past projects, and availability, Tagging and custom labels
+
