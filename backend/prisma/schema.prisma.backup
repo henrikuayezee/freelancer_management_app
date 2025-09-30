@@ -1,0 +1,644 @@
+// Prisma Schema for Freelancer Management Platform
+// This defines the database structure for the entire application
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER MANAGEMENT
+// ============================================
+
+// Users table - handles authentication for all user types
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String   // bcrypt hashed
+  role      String   @default("FREELANCER") // ADMIN, PROJECT_MANAGER, TRAINING_LEAD, QA, FINANCE, FREELANCER
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  freelancer Freelancer? // One-to-one if user is a freelancer
+  adminProfile AdminProfile? // One-to-one if user is admin/staff
+
+  @@index([email])
+  @@index([role])
+}
+
+// UserRole values: ADMIN, PROJECT_MANAGER, TRAINING_LEAD, QA, FINANCE, FREELANCER
+
+// Admin/Staff profile (for non-freelancer users)
+model AdminProfile {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName   String
+  lastName    String
+  phone       String?
+  department  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ============================================
+// FREELANCER MANAGEMENT
+// ============================================
+
+// Freelancer Applications (before approval)
+model FreelancerApplication {
+  id            String      @id @default(uuid())
+
+  // Personal Information
+  email         String      @unique
+  firstName     String
+  lastName      String
+  age           Int?
+  phone         String
+  city          String
+  country       String
+  gender        String?
+  timezone      String?
+
+  // Education
+  educationLevel      String?
+  degreeName          String?
+  educationInstitution String?
+
+  // Work Setup
+  hasLaptop           Boolean  @default(false)
+  hasReliableInternet Boolean  @default(false)
+  remoteWorkAvailable Boolean  @default(false)
+  employmentStatus    String?
+
+  // Availability & Interest
+  preferredStartTime  String?
+  preferredEndTime    String?
+  availabilityType    String?  // "Full-time", "Part-time"
+  hoursPerWeek        Int?
+  interestedLongTerm  Boolean  @default(false)
+
+  // Experience
+  relevantExperience  String?  // Text description
+  yearsOfExperience   Float?
+  previousCompanies   String?  // Comma-separated or JSON
+
+  // Skills
+  annotationTypes     String?  // JSON array: ["Image", "Video", "Text", "Audio", "3D"]
+  annotationMethods   String?  // JSON array: ["Bounding Box", "Polygon", etc.]
+  annotationTools     String?  // JSON array: ["CVAT", "Labelbox", "V7"]
+  strongestTool       String?
+  languageProficiency String?  // JSON array: ["English", "French"]
+
+  // Additional Info
+  hasTrainedOthers    Boolean  @default(false)
+  complexTaskDescription String?
+  howHeardAbout       String?
+
+  // Application Status
+  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  reviewedBy    String?  // User ID of reviewer
+  reviewedAt    DateTime?
+  rejectionReason String?
+
+  // Timestamps
+  submittedAt   DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  freelancer    Freelancer?  // Created after approval
+
+  @@index([status])
+  @@index([email])
+  @@index([country])
+  @@index([submittedAt])
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Freelancer Profile (after approval)
+model Freelancer {
+  id                    String   @id @default(uuid())
+  freelancerId          String   @unique  // Human-readable ID (e.g., "FL-0001")
+
+  // Link to User account
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Link to original application
+  applicationId         String   @unique
+  application           FreelancerApplication @relation(fields: [applicationId], references: [id])
+
+  // Personal Information (copied from application, can be updated)
+  firstName             String
+  lastName              String
+  email                 String   @unique
+  phone                 String
+  city                  String
+  country               String
+  timezone              String?
+  gender                String?
+  age                   Int?
+
+  // Skills (JSON fields for flexibility)
+  domainExpertise       String?  // JSON array
+  annotationTypes       String?  // JSON array
+  annotationMethods     String?  // JSON array
+  toolsProficiency      String?  // JSON object: {"CVAT": "expert", "V7": "intermediate"}
+  languageProficiency   String?  // JSON array
+
+  // Availability (self-managed)
+  availabilityType      String?  // "Full-time", "Part-time"
+  hoursPerWeek          Int?
+  preferredStartTime    String?
+  preferredEndTime      String?
+  unavailableDates      String?  // JSON array of date strings
+
+  // Status & Classification (admin-managed)
+  status                FreelancerStatus @default(ACTIVE)
+  onboardingStatus      OnboardingStatus @default(PENDING)
+  currentTier           Tier             @default(BRONZE)
+  currentGrade          Grade            @default(C)
+
+  // Performance Tags (admin-managed, JSON array)
+  performanceTags       String?  // ["high-performer", "reliable", "fast-learner"]
+
+  // Training
+  trainingCompleted     Boolean  @default(false)
+  trainingCompletedAt   DateTime?
+
+  // Slack
+  slackUserId           String?
+  slackInvitedAt        DateTime?
+
+  // Timestamps
+  approvedAt            DateTime @default(now())
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  lastActiveAt          DateTime?
+
+  // Relations
+  onboardingTests       OnboardingTest[]
+  projectApplications   ProjectApplication[]
+  projectAssignments    ProjectAssignment[]
+  performanceRecords    PerformanceRecord[]
+  paymentRecords        PaymentRecord[]
+  interventions         PerformanceIntervention[]
+
+  @@index([freelancerId])
+  @@index([status])
+  @@index([currentTier])
+  @@index([currentGrade])
+  @@index([country])
+  @@index([onboardingStatus])
+}
+
+enum FreelancerStatus {
+  ACTIVE      // Available for projects
+  ENGAGED     // Currently assigned to a project
+  INACTIVE    // Temporarily unavailable
+  DEACTIVATED // Removed from pool
+}
+
+enum OnboardingStatus {
+  PENDING        // Not started
+  IN_PROGRESS    // Tests assigned, not completed
+  COMPLETED      // Passed all tests
+  FAILED         // Did not pass after max attempts
+}
+
+enum Tier {
+  PLATINUM
+  GOLD
+  SILVER
+  BRONZE
+}
+
+enum Grade {
+  A
+  B
+  C
+}
+
+// ============================================
+// ONBOARDING & TRAINING
+// ============================================
+
+// Onboarding Tests (Bounding Box & Segmentation)
+model OnboardingTest {
+  id                String   @id @default(uuid())
+  freelancerId      String
+  freelancer        Freelancer @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
+
+  testType          TestType
+  attemptNumber     Int      // 1, 2, or 3
+
+  // Test Details
+  taskId            String?  // ID from annotation platform (e.g., CVAT task ID)
+  assignedAt        DateTime @default(now())
+  submittedAt       DateTime?
+
+  // Grading
+  reviewedBy        String?  // User ID of reviewer
+  reviewedAt        DateTime?
+  confidenceScore   Float?   // 0-100
+  grade             String?  // Pass/Fail or letter grade
+  comments          String?
+  passed            Boolean  @default(false)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([freelancerId])
+  @@index([testType])
+}
+
+enum TestType {
+  BOUNDING_BOX
+  SEGMENTATION
+  FITMENT  // Project-specific fitment test
+}
+
+// ============================================
+// PROJECT MANAGEMENT
+// ============================================
+
+model Project {
+  id                    String   @id @default(uuid())
+  projectId             String   @unique  // Human-readable (e.g., "AN001")
+
+  // Project Details
+  name                  String
+  vertical              String?  // e.g., "Computer Vision"
+  annotationRequired    String?  // e.g., "Keypoint", "Bounding Box"
+  description           String?
+
+  // Requirements
+  freelancersRequired   Int
+  startDate             DateTime
+  endDate               DateTime?
+
+  // Performance Expectations
+  speedPercentage       Float?   // Expected speed %
+  accuracyPercentage    Float    @default(90.0)
+  assetsPerDay          Int?
+  hoursPerDay           Float?
+
+  // Evaluation
+  evaluationFrequency   EvaluationFrequency @default(WEEKLY)
+
+  // Payment Model
+  paymentModel          PaymentModel
+  hourlyRate            Float?
+  perAssetRate          Float?
+  perObjectRate         Float?
+
+  // Status
+  status                ProjectStatus @default(DRAFT)
+
+  // Tracking
+  createdBy             String   // User ID
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Relations
+  applications          ProjectApplication[]
+  assignments           ProjectAssignment[]
+  performanceRecords    PerformanceRecord[]
+
+  @@index([projectId])
+  @@index([status])
+  @@index([startDate])
+}
+
+enum ProjectStatus {
+  DRAFT
+  OPEN_FOR_APPLICATIONS
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum EvaluationFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum PaymentModel {
+  PER_HOUR
+  PER_ASSET
+  PER_OBJECT
+  HYBRID
+}
+
+// Freelancer applications to projects
+model ProjectApplication {
+  id                String   @id @default(uuid())
+  projectId         String
+  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  freelancerId      String
+  freelancer        Freelancer @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
+
+  // Application Details
+  availableHours    Int      // Hours they can commit
+  appliedAt         DateTime @default(now())
+
+  // Fitment Test
+  fitmentTestId     String?
+  fitmentTestScore  Float?
+  fitmentTestPassed Boolean  @default(false)
+
+  // Status
+  status            ApplicationProjectStatus @default(APPLIED)
+  reviewedBy        String?
+  reviewedAt        DateTime?
+
+  updatedAt         DateTime @updatedAt
+
+  @@unique([projectId, freelancerId])
+  @@index([projectId])
+  @@index([freelancerId])
+  @@index([status])
+}
+
+enum ApplicationProjectStatus {
+  APPLIED
+  UNDER_REVIEW
+  FITMENT_TEST_ASSIGNED
+  APPROVED
+  REJECTED
+}
+
+// Project Assignments (after approval)
+model ProjectAssignment {
+  id                String   @id @default(uuid())
+  projectId         String
+  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  freelancerId      String
+  freelancer        Freelancer @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
+
+  // Assignment Details
+  assignedAt        DateTime @default(now())
+  startDate         DateTime
+  endDate           DateTime?
+
+  // Expectations (can override project defaults)
+  expectedAssetsPerDay  Int?
+  expectedHoursPerDay   Float?
+
+  // Status
+  status            AssignmentStatus @default(ACTIVE)
+
+  // Completion
+  completedAt       DateTime?
+  completionNotes   String?
+
+  updatedAt         DateTime @updatedAt
+
+  @@unique([projectId, freelancerId])
+  @@index([projectId])
+  @@index([freelancerId])
+  @@index([status])
+}
+
+enum AssignmentStatus {
+  ACTIVE
+  COMPLETED
+  TERMINATED
+}
+
+// ============================================
+// PERFORMANCE TRACKING
+// ============================================
+
+model PerformanceRecord {
+  id                String   @id @default(uuid())
+  freelancerId      String
+  freelancer        Freelancer @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
+  projectId         String?
+  project           Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  // Period
+  recordDate        DateTime @default(now())
+  recordType        RecordType  // DAILY, WEEKLY, MONTHLY
+  month             Int?
+  year              Int?
+
+  // Productivity Metrics
+  hoursWorked       Float?
+  assetsCompleted   Int?
+  tasksCompleted    Int?
+  avgTimePerTask    Float?   // Time per task (TPT) in minutes
+
+  // COM Scores (Soft Skills) - Scale: 0-3 or 0-5
+  comResponsibility    Float?
+  comCommitment        Float?
+  comInitiative        Float?
+  comWillingness       Float?
+  comCommunication     Float?
+  comTotal             Float?
+
+  // QUAL Scores (Quality Metrics)
+  qualSpeed            Float?
+  qualDelibOmission    Float?
+  qualAccuracy         Float?
+  qualAttention        Float?
+  qualUnannotated      Float?
+  qualUnderstanding    Float?
+  qualRejectedCount    Int?
+  qualTotal            Float?
+
+  // Overall
+  overallScore      Float?
+
+  // Who recorded this
+  recordedBy        String?  // User ID
+  recordedAt        DateTime @default(now())
+
+  // Notes
+  notes             String?
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([freelancerId])
+  @@index([projectId])
+  @@index([recordType])
+  @@index([recordDate])
+  @@index([year, month])
+}
+
+enum RecordType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  PROJECT_END
+}
+
+// Performance Interventions (3 strikes system)
+model PerformanceIntervention {
+  id                String   @id @default(uuid())
+  freelancerId      String
+  freelancer        Freelancer @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
+
+  interventionNumber  Int    // 1, 2, or 3
+  reason            String   // Why intervention was needed
+  actionTaken       String   // What was discussed/done
+
+  conductedBy       String   // User ID
+  conductedAt       DateTime @default(now())
+
+  // Follow-up
+  followUpDate      DateTime?
+  followUpNotes     String?
+  resolved          Boolean  @default(false)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([freelancerId])
+  @@index([interventionNumber])
+}
+
+// ============================================
+// PAYMENT MANAGEMENT
+// ============================================
+
+model PaymentRecord {
+  id                String   @id @default(uuid())
+  freelancerId      String
+  freelancer        Freelancer @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
+
+  // Period
+  month             Int
+  year              Int
+
+  // Calculation Details
+  hoursWorked       Float?
+  assetsCompleted   Int?
+  objectsAnnotated  Int?
+
+  // Payment Breakdown
+  hourlyRate        Float?
+  assetRate         Float?
+  objectRate        Float?
+
+  // Total
+  totalAmount       Float
+  currency          String   @default("GHC")
+
+  // Status
+  status            PaymentStatus @default(PENDING)
+  paidAt            DateTime?
+
+  // Notes
+  notes             String?
+
+  // Tracking
+  createdBy         String   // User ID
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([freelancerId, year, month])
+  @@index([freelancerId])
+  @@index([year, month])
+  @@index([status])
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  PROCESSED
+  PAID
+  DISPUTED
+}
+
+// ============================================
+// COMMUNICATION
+// ============================================
+
+model Notification {
+  id          String   @id @default(uuid())
+  userId      String   // Recipient
+
+  type        NotificationType
+  title       String
+  message     String
+  link        String?  // Optional link to relevant page
+
+  isRead      Boolean  @default(false)
+  readAt      DateTime?
+
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+enum NotificationType {
+  APPLICATION_APPROVED
+  APPLICATION_REJECTED
+  TEST_ASSIGNED
+  TEST_GRADED
+  PROJECT_ASSIGNED
+  PERFORMANCE_REVIEW
+  PAYMENT_PROCESSED
+  ANNOUNCEMENT
+  SYSTEM
+}
+
+model Announcement {
+  id          String   @id @default(uuid())
+
+  title       String
+  message     String
+
+  // Targeting
+  targetRole  String?  // JSON array of roles
+  targetTier  String?  // JSON array of tiers
+  targetGrade String?  // JSON array of grades
+  targetCountry String? // JSON array of countries
+
+  // Scheduling
+  publishAt   DateTime @default(now())
+  expiresAt   DateTime?
+
+  // Status
+  isPublished Boolean  @default(false)
+
+  // Tracking
+  createdBy   String   // User ID
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isPublished])
+  @@index([publishAt])
+}
+
+// ============================================
+// SYSTEM CONFIGURATION
+// ============================================
+
+model SystemConfig {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String   // JSON value
+  description String?
+  updatedBy   String?
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@index([key])
+}
