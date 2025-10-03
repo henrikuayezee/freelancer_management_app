@@ -27,6 +27,7 @@ model User {
   // Relations
   freelancer Freelancer? // One-to-one if user is a freelancer
   adminProfile AdminProfile? // One-to-one if user is admin/staff
+  notifications Notification[] // One-to-many notifications
 
   @@index([email])
   @@index([role])
@@ -55,48 +56,41 @@ model AdminProfile {
 model FreelancerApplication {
   id            String      @id @default(uuid())
 
-  // Personal Information
+  // Core fields (required for operations)
   email         String      @unique
   firstName     String
   lastName      String
-  age           Int?
   phone         String
-  city          String
-  country       String
+
+  // Dynamic form data - stores all form responses as JSON
+  formData      String?     // JSON object containing all form field responses
+
+  // Legacy fields (kept for backward compatibility, can be deprecated later)
+  age           Int?
+  city          String?
+  country       String?
   gender        String?
   timezone      String?
-
-  // Education
   educationLevel      String?
   degreeName          String?
   educationInstitution String?
-
-  // Work Setup
   hasLaptop           Boolean  @default(false)
   hasReliableInternet Boolean  @default(false)
   remoteWorkAvailable Boolean  @default(false)
   employmentStatus    String?
-
-  // Availability & Interest
   preferredStartTime  String?
   preferredEndTime    String?
-  availabilityType    String?  // "Full-time", "Part-time"
+  availabilityType    String?
   hoursPerWeek        Int?
   interestedLongTerm  Boolean  @default(false)
-
-  // Experience
-  relevantExperience  String?  // Text description
+  relevantExperience  String?
   yearsOfExperience   Float?
-  previousCompanies   String?  // Comma-separated or JSON
-
-  // Skills
-  annotationTypes     String?  // JSON array: ["Image", "Video", "Text", "Audio", "3D"]
-  annotationMethods   String?  // JSON array: ["Bounding Box", "Polygon", etc.]
-  annotationTools     String?  // JSON array: ["CVAT", "Labelbox", "V7"]
+  previousCompanies   String?
+  annotationTypes     String?
+  annotationMethods   String?
+  annotationTools     String?
   strongestTool       String?
-  languageProficiency String?  // JSON array: ["English", "French"]
-
-  // Additional Info
+  languageProficiency String?
   hasTrainedOthers    Boolean  @default(false)
   complexTaskDescription String?
   howHeardAbout       String?
@@ -271,13 +265,24 @@ model Project {
   evaluationFrequency   String @default("WEEKLY")
 
   // Payment Model
-  paymentModel          String
-  hourlyRate            Float?
-  perAssetRate          Float?
-  perObjectRate         Float?
+  paymentModel          String   // HOURLY, PER_ASSET, PER_OBJECT
+
+  // Hourly Payment (separate rates for annotation and review)
+  hourlyRateAnnotation  Float?
+  hourlyRateReview      Float?
+
+  // Per Asset Payment (separate rates for annotation and review)
+  perAssetRateAnnotation Float?
+  perAssetRateReview     Float?
+  expectedTimePerAsset   Float?  // In minutes
+
+  // Per Object Payment (separate rates for annotation and review)
+  perObjectRateAnnotation Float?
+  perObjectRateReview     Float?
 
   // Status
   status                String @default("DRAFT")
+  openForApplications   Boolean @default(false)
 
   // Tracking
   createdBy             String   // User ID
@@ -288,6 +293,7 @@ model Project {
   applications          ProjectApplication[]
   assignments           ProjectAssignment[]
   performanceRecords    PerformanceRecord[]
+  paymentLineItems      PaymentLineItem[]
 
   @@index([projectId])
   @@index([status])
@@ -466,6 +472,8 @@ model PaymentRecord {
   // Period
   month             Int
   year              Int
+  periodStart       DateTime
+  periodEnd         DateTime
 
   // Calculation Details
   hoursWorked       Float?
@@ -482,21 +490,65 @@ model PaymentRecord {
   currency          String   @default("GHC")
 
   // Status
-  status            String @default("PENDING")
+  status            String @default("PENDING") // PENDING, APPROVED, PAID, REJECTED
+  approvedBy        String?
+  approvedAt        DateTime?
   paidAt            DateTime?
+
+  // Payment Details
+  paymentMethod     String?  // BANK_TRANSFER, MOBILE_MONEY, PAYPAL
+  referenceNumber   String?
 
   // Notes
   notes             String?
+  internalNotes     String?
 
   // Tracking
   createdBy         String   // User ID
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
+  // Relations
+  lineItems         PaymentLineItem[]
+
   @@unique([freelancerId, year, month])
   @@index([freelancerId])
   @@index([year, month])
   @@index([status])
+}
+
+// Individual payment line items (per project/task)
+model PaymentLineItem {
+  id                String   @id @default(uuid())
+  paymentRecordId   String
+  paymentRecord     PaymentRecord @relation(fields: [paymentRecordId], references: [id], onDelete: Cascade)
+
+  projectId         String?
+  project           Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  // Description
+  description       String
+  workDate          DateTime
+
+  // Work Details
+  hoursWorked       Float?
+  assetsCompleted   Int?
+  objectsAnnotated  Int?
+
+  // Rate Applied
+  rate              Float
+  rateType          String   // HOURLY, PER_ASSET, PER_OBJECT
+
+  // Calculated Amount
+  amount            Float
+
+  // Tracking
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([paymentRecordId])
+  @@index([projectId])
+  @@index([workDate])
 }
 
 
@@ -507,13 +559,20 @@ model PaymentRecord {
 
 model Notification {
   id          String   @id @default(uuid())
-  userId      String   // Recipient
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  type        String
+  // Notification Details
+  type        String   // APPLICATION_APPROVED, PROJECT_ASSIGNED, PERFORMANCE_UPDATE, etc.
   title       String
   message     String
-  link        String?  // Optional link to relevant page
+  link        String?  // Optional link to related resource
 
+  // Metadata
+  relatedId   String?  // ID of related entity (projectId, applicationId, etc.)
+  relatedType String?  // Type of related entity (PROJECT, APPLICATION, etc.)
+
+  // Status
   isRead      Boolean  @default(false)
   readAt      DateTime?
 
@@ -522,6 +581,7 @@ model Notification {
   @@index([userId])
   @@index([isRead])
   @@index([createdAt])
+  @@index([type])
 }
 
 

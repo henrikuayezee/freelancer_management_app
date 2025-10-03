@@ -4,29 +4,30 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { applicationsAPI, freelancersAPI } from '../services/api';
+import AdminLayout from '../components/AdminLayout';
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState('applications');
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const statusFilter = searchParams.get('status') || '';
+
   const [applications, setApplications] = useState([]);
-  const [freelancers, setFreelancers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState(null);
 
   useEffect(() => {
-    if (activeTab === 'applications') {
-      loadApplications();
-    } else {
-      loadFreelancers();
-    }
-  }, [activeTab]);
+    loadApplications();
+  }, [statusFilter]);
 
   const loadApplications = async () => {
     setLoading(true);
     try {
-      const response = await applicationsAPI.getAll({ status: 'PENDING' });
+      const params = statusFilter ? { status: statusFilter } : {};
+      const response = await applicationsAPI.getAll(params);
       setApplications(response.data.data.applications);
     } catch (error) {
       console.error('Failed to load applications', error);
@@ -38,12 +39,86 @@ export default function AdminDashboard() {
   const loadFreelancers = async () => {
     setLoading(true);
     try {
-      const response = await freelancersAPI.getAll();
+      const params = {};
+      if (filters.search) params.search = filters.search;
+      if (filters.status) params.status = filters.status;
+      if (filters.tier) params.tier = filters.tier;
+      if (filters.grade) params.grade = filters.grade;
+      if (filters.country) params.country = filters.country;
+
+      const response = await freelancersAPI.getAll(params);
       setFreelancers(response.data.data.freelancers);
+      setFilterOptions(response.data.data.filterOptions || {});
     } catch (error) {
       console.error('Failed to load freelancers', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFilterChange = (key, value) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleClearFilters = () => {
+    setFilters({
+      search: '',
+      status: '',
+      tier: '',
+      grade: '',
+      country: '',
+    });
+  };
+
+  const handleImportCSV = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    setImporting(true);
+    setImportResults(null);
+
+    try {
+      const text = await file.text();
+      const lines = text.split('\n').filter((line) => line.trim());
+
+      if (lines.length < 2) {
+        alert('CSV file is empty or has no data rows');
+        setImporting(false);
+        return;
+      }
+
+      // Parse CSV
+      const headers = lines[0].split(',').map((h) => h.trim().replace(/"/g, ''));
+      const csvData = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map((v) => v.trim().replace(/"/g, ''));
+        const row = {};
+
+        headers.forEach((header, index) => {
+          row[header] = values[index] || '';
+        });
+
+        csvData.push(row);
+      }
+
+      // Send to backend
+      const response = await freelancersAPI.importCSV(csvData);
+      setImportResults(response.data.data);
+      loadFreelancers(); // Reload list
+
+      if (response.data.data.failed > 0) {
+        alert(
+          `Import completed:\n${response.data.data.success} succeeded\n${response.data.data.failed} failed\n\nCheck the results below for details.`
+        );
+      } else {
+        alert(`Import successful! ${response.data.data.success} freelancers imported.`);
+      }
+    } catch (error) {
+      alert('Import failed: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setImporting(false);
+      event.target.value = ''; // Reset file input
     }
   };
 
@@ -52,7 +127,8 @@ export default function AdminDashboard() {
 
     try {
       const response = await applicationsAPI.approve(id);
-      alert(`Application approved! Temporary password: ${response.data.data.temporaryPassword}`);
+      const { email, temporaryPassword, freelancerId } = response.data.data;
+      alert(`Application approved successfully!\n\nFreelancer ID: ${freelancerId}\nEmail: ${email}\nTemporary Password: ${temporaryPassword}\n\nThe freelancer can now login using the Freelancer Login tab.\n\nPlease share these credentials with the freelancer securely.`);
       loadApplications();
       setSelectedApplication(null);
     } catch (error) {
@@ -75,45 +151,15 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div style={styles.container}>
-      {/* Header */}
-      <div style={styles.header}>
-        <div>
-          <h1 style={styles.title}>Freelancer Management Platform</h1>
-          <p style={styles.subtitle}>Welcome, {user?.email}</p>
-        </div>
-        <button onClick={logout} style={styles.logoutButton}>
-          Logout
-        </button>
-      </div>
+    <AdminLayout>
+      <div>
+        <h2 style={styles.pageTitle}>
+          {statusFilter ? `${statusFilter} Applications` : 'All Applications'}
+        </h2>
 
-      {/* Tabs */}
-      <div style={styles.tabs}>
-        <button
-          onClick={() => setActiveTab('applications')}
-          style={{
-            ...styles.tab,
-            ...(activeTab === 'applications' ? styles.activeTab : {}),
-          }}
-        >
-          Pending Applications
-        </button>
-        <button
-          onClick={() => setActiveTab('freelancers')}
-          style={{
-            ...styles.tab,
-            ...(activeTab === 'freelancers' ? styles.activeTab : {}),
-          }}
-        >
-          All Freelancers
-        </button>
-      </div>
-
-      {/* Content */}
-      <div style={styles.content}>
         {loading ? (
           <div style={styles.loading}>Loading...</div>
-        ) : activeTab === 'applications' ? (
+        ) : (
           <ApplicationsTab
             applications={applications}
             selectedApplication={selectedApplication}
@@ -121,11 +167,9 @@ export default function AdminDashboard() {
             onApprove={handleApprove}
             onReject={handleReject}
           />
-        ) : (
-          <FreelancersTab freelancers={freelancers} />
         )}
       </div>
-    </div>
+    </AdminLayout>
   );
 }
 
@@ -235,13 +279,167 @@ function ApplicationsTab({ applications, selectedApplication, setSelectedApplica
   );
 }
 
-function FreelancersTab({ freelancers }) {
-  if (freelancers.length === 0) {
-    return <div style={styles.empty}>No freelancers yet</div>;
-  }
+function FreelancersTab({
+  freelancers,
+  navigate,
+  filters,
+  filterOptions,
+  onFilterChange,
+  onClearFilters,
+  onImportCSV,
+  importing,
+  importResults,
+}) {
+  const hasActiveFilters = filters.search || filters.status || filters.tier || filters.grade || filters.country;
+
+  const handleExportCSV = () => {
+    const params = {};
+    if (filters.search) params.search = filters.search;
+    if (filters.status) params.status = filters.status;
+    if (filters.tier) params.tier = filters.tier;
+    if (filters.grade) params.grade = filters.grade;
+    if (filters.country) params.country = filters.country;
+
+    const url = freelancersAPI.exportCSV(params);
+    window.open(url, '_blank');
+  };
 
   return (
-    <div style={styles.table}>
+    <div>
+      {/* Import Section */}
+      <div style={styles.importPanel}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <label htmlFor="csv-upload" style={styles.importButton}>
+            {importing ? '⏳ Importing...' : '📤 Import from CSV'}
+          </label>
+          <input
+            id="csv-upload"
+            type="file"
+            accept=".csv"
+            onChange={onImportCSV}
+            disabled={importing}
+            style={{ display: 'none' }}
+          />
+          <span style={{ fontSize: '12px', color: '#6b7280' }}>
+            Upload CSV file to bulk import freelancers
+          </span>
+        </div>
+
+        {importResults && (
+          <div style={styles.importResults}>
+            <div style={styles.importSummary}>
+              <strong>Import Summary:</strong> {importResults.total} total, {importResults.success}{' '}
+              succeeded, {importResults.failed} failed
+            </div>
+
+            {importResults.errors.length > 0 && (
+              <div style={styles.importErrors}>
+                <strong>Errors:</strong>
+                <div style={styles.errorList}>
+                  {importResults.errors.slice(0, 10).map((err, idx) => (
+                    <div key={idx} style={styles.errorItem}>
+                      Row {err.row} ({err.email}): {err.error}
+                    </div>
+                  ))}
+                  {importResults.errors.length > 10 && (
+                    <div style={{ marginTop: '8px', fontStyle: 'italic' }}>
+                      ... and {importResults.errors.length - 10} more errors
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Filter Panel */}
+      <div style={styles.filterPanel}>
+        <div style={styles.filterRow}>
+          <input
+            type="text"
+            placeholder="Search by name, email, ID..."
+            value={filters.search}
+            onChange={(e) => onFilterChange('search', e.target.value)}
+            style={styles.searchInput}
+          />
+
+          <select
+            value={filters.status}
+            onChange={(e) => onFilterChange('status', e.target.value)}
+            style={styles.filterSelect}
+          >
+            <option value="">All Statuses</option>
+            {filterOptions.statuses?.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={filters.tier}
+            onChange={(e) => onFilterChange('tier', e.target.value)}
+            style={styles.filterSelect}
+          >
+            <option value="">All Tiers</option>
+            {filterOptions.tiers?.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={filters.grade}
+            onChange={(e) => onFilterChange('grade', e.target.value)}
+            style={styles.filterSelect}
+          >
+            <option value="">All Grades</option>
+            {filterOptions.grades?.map((g) => (
+              <option key={g} value={g}>
+                {g}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={filters.country}
+            onChange={(e) => onFilterChange('country', e.target.value)}
+            style={styles.filterSelect}
+          >
+            <option value="">All Countries</option>
+            {filterOptions.countries?.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+
+          {hasActiveFilters && (
+            <button onClick={onClearFilters} style={styles.clearButton}>
+              Clear Filters
+            </button>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={styles.resultCount}>
+            {freelancers.length} freelancer{freelancers.length !== 1 ? 's' : ''} found
+          </div>
+          <button onClick={handleExportCSV} style={styles.exportButton}>
+            📥 Export to CSV
+          </button>
+        </div>
+      </div>
+
+      {/* Table */}
+      {freelancers.length === 0 ? (
+        <div style={styles.empty}>
+          {hasActiveFilters ? 'No freelancers match your filters' : 'No freelancers yet'}
+        </div>
+      ) : (
+        <div style={styles.table}>
       <table style={styles.tableElement}>
         <thead>
           <tr>
@@ -252,6 +450,7 @@ function FreelancersTab({ freelancers }) {
             <th style={styles.th}>Status</th>
             <th style={styles.th}>Tier</th>
             <th style={styles.th}>Grade</th>
+            <th style={styles.th}>Action</th>
           </tr>
         </thead>
         <tbody>
@@ -259,7 +458,16 @@ function FreelancersTab({ freelancers }) {
             <tr key={fl.id} style={styles.tr}>
               <td style={styles.td}>{fl.freelancerId}</td>
               <td style={styles.td}>
-                {fl.firstName} {fl.lastName}
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate(`/admin/freelancers/${fl.id}`);
+                  }}
+                  style={styles.linkStyle}
+                >
+                  {fl.firstName} {fl.lastName}
+                </a>
               </td>
               <td style={styles.td}>{fl.email}</td>
               <td style={styles.td}>
@@ -270,10 +478,20 @@ function FreelancersTab({ freelancers }) {
               </td>
               <td style={styles.td}>{fl.currentTier}</td>
               <td style={styles.td}>{fl.currentGrade}</td>
+              <td style={styles.td}>
+                <button
+                  onClick={() => navigate(`/admin/freelancers/${fl.id}`)}
+                  style={styles.viewButton}
+                >
+                  View Profile
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
+    </div>
+      )}
     </div>
   );
 }
@@ -310,6 +528,12 @@ function getStatusBadgeStyle(status) {
 }
 
 const styles = {
+  pageTitle: {
+    fontSize: '28px',
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: '30px',
+  },
   container: {
     minHeight: '100vh',
     backgroundColor: '#f9fafb',
@@ -496,5 +720,110 @@ const styles = {
     cursor: 'pointer',
     fontSize: '14px',
     fontWeight: '500',
+  },
+  linkStyle: {
+    color: '#2563eb',
+    textDecoration: 'none',
+    cursor: 'pointer',
+    fontWeight: '500',
+  },
+  filterPanel: {
+    backgroundColor: 'white',
+    borderRadius: '8px',
+    padding: '20px',
+    marginBottom: '20px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+  },
+  filterRow: {
+    display: 'flex',
+    gap: '12px',
+    flexWrap: 'wrap',
+    marginBottom: '12px',
+  },
+  searchInput: {
+    flex: '2',
+    minWidth: '200px',
+    padding: '8px 12px',
+    border: '1px solid #d1d5db',
+    borderRadius: '4px',
+    fontSize: '14px',
+  },
+  filterSelect: {
+    flex: '1',
+    minWidth: '140px',
+    padding: '8px 12px',
+    border: '1px solid #d1d5db',
+    borderRadius: '4px',
+    fontSize: '14px',
+    backgroundColor: 'white',
+    cursor: 'pointer',
+  },
+  clearButton: {
+    padding: '8px 16px',
+    backgroundColor: '#f3f4f6',
+    border: '1px solid #d1d5db',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    color: '#374151',
+  },
+  resultCount: {
+    fontSize: '14px',
+    color: '#6b7280',
+    fontWeight: '500',
+  },
+  exportButton: {
+    padding: '8px 16px',
+    backgroundColor: '#10b981',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '500',
+  },
+  importPanel: {
+    backgroundColor: 'white',
+    borderRadius: '8px',
+    padding: '20px',
+    marginBottom: '20px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+  },
+  importButton: {
+    display: 'inline-block',
+    padding: '10px 20px',
+    backgroundColor: '#3b82f6',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '500',
+  },
+  importResults: {
+    marginTop: '16px',
+    padding: '16px',
+    backgroundColor: '#f9fafb',
+    borderRadius: '4px',
+    border: '1px solid #e5e7eb',
+  },
+  importSummary: {
+    fontSize: '14px',
+    color: '#374151',
+    marginBottom: '12px',
+  },
+  importErrors: {
+    marginTop: '12px',
+  },
+  errorList: {
+    marginTop: '8px',
+    maxHeight: '200px',
+    overflowY: 'auto',
+  },
+  errorItem: {
+    fontSize: '13px',
+    color: '#ef4444',
+    padding: '4px 0',
+    borderBottom: '1px solid #fee2e2',
   },
 };

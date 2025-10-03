@@ -10,6 +10,15 @@ import { errorHandler } from './src/middleware/errorHandler.js';
 import authRoutes from './src/routes/authRoutes.js';
 import applicationRoutes from './src/routes/applicationRoutes.js';
 import freelancerRoutes from './src/routes/freelancerRoutes.js';
+import projectRoutes from './src/routes/projectRoutes.js';
+import performanceRoutes from './src/routes/performanceRoutes.js';
+import tieringRoutes from './src/routes/tieringRoutes.js';
+import freelancerPortalRoutes from './src/routes/freelancerPortalRoutes.js';
+import userRoutes from './src/routes/userRoutes.js';
+import notificationRoutes from './src/routes/notificationRoutes.js';
+import paymentRoutes from './src/routes/paymentRoutes.js';
+import dashboardRoutes from './src/routes/dashboardRoutes.js';
+import formTemplateRoutes from './src/routes/formTemplateRoutes.js';
 
 // Initialize Express app
 const app = express();
@@ -55,6 +64,15 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/freelancers', freelancerRoutes);
+app.use('/api/projects', projectRoutes);
+app.use('/api/performance', performanceRoutes);
+app.use('/api/tiering', tieringRoutes);
+app.use('/api/freelancer-portal', freelancerPortalRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/form-template', formTemplateRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

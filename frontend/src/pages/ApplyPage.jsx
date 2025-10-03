@@ -1,37 +1,71 @@
 /**
  * Freelancer Application Page
  * Public form for freelancers to apply
+ * Dynamically renders form based on admin-configured template
  */
 
-import { useState } from 'react';
-import { applicationsAPI } from '../services/api';
+import { useState, useEffect } from 'react';
+import { applicationsAPI, formTemplateAPI } from '../services/api';
 
 export default function ApplyPage() {
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    city: '',
-    country: 'Ghana',
-    age: '',
-    gender: '',
-    relevantExperience: '',
-    yearsOfExperience: '',
-    hasLaptop: true,
-    hasReliableInternet: true,
-  });
-
+  const [formFields, setFormFields] = useState([]);
+  const [formData, setFormData] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingTemplate, setLoadingTemplate] = useState(true);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    loadFormTemplate();
+  }, []);
+
+  const loadFormTemplate = async () => {
+    try {
+      setLoadingTemplate(true);
+      const response = await formTemplateAPI.getTemplate();
+      const fields = response.data.fields || [];
+      setFormFields(fields);
+
+      // Initialize form data with default values
+      const initialData = {};
+      fields.forEach(field => {
+        if (field.type === 'checkbox') {
+          initialData[field.id] = false;
+        } else if (field.type === 'checkboxGroup') {
+          initialData[field.id] = [];
+        } else {
+          initialData[field.id] = '';
+        }
+      });
+      setFormData(initialData);
+    } catch (error) {
+      console.error('Failed to load form template:', error);
+      setError('Failed to load application form. Please try again later.');
+    } finally {
+      setLoadingTemplate(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
+
+    if (type === 'checkbox') {
+      const field = formFields.find(f => f.id === name);
+      if (field && field.type === 'checkboxGroup') {
+        // Handle checkbox group
+        const currentValues = formData[name] || [];
+        if (checked) {
+          setFormData(prev => ({ ...prev, [name]: [...currentValues, value] }));
+        } else {
+          setFormData(prev => ({ ...prev, [name]: currentValues.filter(v => v !== value) }));
+        }
+      } else {
+        // Handle single checkbox
+        setFormData(prev => ({ ...prev, [name]: checked }));
+      }
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -48,6 +82,132 @@ export default function ApplyPage() {
       setLoading(false);
     }
   };
+
+  const renderField = (field) => {
+    const value = formData[field.id] || '';
+
+    switch (field.type) {
+      case 'text':
+      case 'email':
+      case 'tel':
+      case 'number':
+      case 'date':
+        return (
+          <input
+            type={field.type}
+            name={field.id}
+            value={value}
+            onChange={handleChange}
+            placeholder={field.placeholder}
+            required={field.required}
+            style={styles.input}
+          />
+        );
+
+      case 'textarea':
+        return (
+          <textarea
+            name={field.id}
+            value={value}
+            onChange={handleChange}
+            placeholder={field.placeholder}
+            required={field.required}
+            rows={4}
+            style={{ ...styles.input, resize: 'vertical' }}
+          />
+        );
+
+      case 'select':
+        return (
+          <select
+            name={field.id}
+            value={value}
+            onChange={handleChange}
+            required={field.required}
+            style={styles.input}
+          >
+            <option value="">Select...</option>
+            {(field.options || []).map((option, index) => (
+              <option key={index} value={option}>{option}</option>
+            ))}
+          </select>
+        );
+
+      case 'radio':
+        return (
+          <div style={styles.radioGroup}>
+            {(field.options || []).map((option, index) => (
+              <label key={index} style={styles.radioLabel}>
+                <input
+                  type="radio"
+                  name={field.id}
+                  value={option}
+                  checked={value === option}
+                  onChange={handleChange}
+                  required={field.required}
+                />
+                <span style={styles.radioText}>{option}</span>
+              </label>
+            ))}
+          </div>
+        );
+
+      case 'checkbox':
+        return (
+          <label style={styles.checkboxLabel}>
+            <input
+              type="checkbox"
+              name={field.id}
+              checked={value === true}
+              onChange={handleChange}
+            />
+            <span style={styles.checkboxText}>{field.placeholder || field.label}</span>
+          </label>
+        );
+
+      case 'checkboxGroup':
+        return (
+          <div style={styles.checkboxGroup}>
+            {(field.options || []).map((option, index) => (
+              <label key={index} style={styles.checkboxLabel}>
+                <input
+                  type="checkbox"
+                  name={field.id}
+                  value={option}
+                  checked={(value || []).includes(option)}
+                  onChange={handleChange}
+                />
+                <span style={styles.checkboxText}>{option}</span>
+              </label>
+            ))}
+          </div>
+        );
+
+      case 'file':
+        return (
+          <input
+            type="file"
+            name={field.id}
+            onChange={handleChange}
+            required={field.required}
+            style={styles.input}
+          />
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  if (loadingTemplate) {
+    return (
+      <div style={styles.container}>
+        <div style={styles.card}>
+          <div style={styles.loadingText}>Loading application form...</div>
+        </div>
+      </div>
+    );
+  }
 
   if (submitted) {
     return (
@@ -72,159 +232,15 @@ export default function ApplyPage() {
         <form onSubmit={handleSubmit} style={styles.form}>
           {error && <div style={styles.error}>{error}</div>}
 
-          <h3 style={styles.sectionTitle}>Personal Information</h3>
-
-          <div style={styles.row}>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>First Name *</label>
-              <input
-                type="text"
-                name="firstName"
-                value={formData.firstName}
-                onChange={handleChange}
-                required
-                style={styles.input}
-              />
+          {formFields.map((field) => (
+            <div key={field.id} style={styles.formGroup}>
+              <label style={styles.label}>
+                {field.label}
+                {field.required && <span style={styles.required}> *</span>}
+              </label>
+              {renderField(field)}
             </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Last Name *</label>
-              <input
-                type="text"
-                name="lastName"
-                value={formData.lastName}
-                onChange={handleChange}
-                required
-                style={styles.input}
-              />
-            </div>
-          </div>
-
-          <div style={styles.row}>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Email *</label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                style={styles.input}
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Phone *</label>
-              <input
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                required
-                style={styles.input}
-              />
-            </div>
-          </div>
-
-          <div style={styles.row}>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>City *</label>
-              <input
-                type="text"
-                name="city"
-                value={formData.city}
-                onChange={handleChange}
-                required
-                style={styles.input}
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Country *</label>
-              <input
-                type="text"
-                name="country"
-                value={formData.country}
-                onChange={handleChange}
-                required
-                style={styles.input}
-              />
-            </div>
-          </div>
-
-          <div style={styles.row}>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Age</label>
-              <input
-                type="number"
-                name="age"
-                value={formData.age}
-                onChange={handleChange}
-                style={styles.input}
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Gender</label>
-              <select name="gender" value={formData.gender} onChange={handleChange} style={styles.input}>
-                <option value="">Select...</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-          </div>
-
-          <h3 style={styles.sectionTitle}>Experience</h3>
-
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Relevant Experience *</label>
-            <textarea
-              name="relevantExperience"
-              value={formData.relevantExperience}
-              onChange={handleChange}
-              required
-              rows={4}
-              style={{ ...styles.input, resize: 'vertical' }}
-              placeholder="Describe your relevant work experience..."
-            />
-          </div>
-
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Years of Experience</label>
-            <input
-              type="number"
-              name="yearsOfExperience"
-              value={formData.yearsOfExperience}
-              onChange={handleChange}
-              style={styles.input}
-              step="0.5"
-            />
-          </div>
-
-          <h3 style={styles.sectionTitle}>Equipment</h3>
-
-          <div style={styles.checkboxGroup}>
-            <label style={styles.checkboxLabel}>
-              <input
-                type="checkbox"
-                name="hasLaptop"
-                checked={formData.hasLaptop}
-                onChange={handleChange}
-              />
-              <span style={styles.checkboxText}>I have a laptop</span>
-            </label>
-
-            <label style={styles.checkboxLabel}>
-              <input
-                type="checkbox"
-                name="hasReliableInternet"
-                checked={formData.hasReliableInternet}
-                onChange={handleChange}
-              />
-              <span style={styles.checkboxText}>I have reliable internet</span>
-            </label>
-          </div>
+          ))}
 
           <button type="submit" disabled={loading} style={styles.button}>
             {loading ? 'Submitting...' : 'Submit Application'}
@@ -267,21 +283,7 @@ const styles = {
   form: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '24px',
-  },
-  sectionTitle: {
-    fontSize: '18px',
-    fontWeight: '600',
-    color: '#333',
-    marginTop: '16px',
-    marginBottom: '-8px',
-    paddingBottom: '8px',
-    borderBottom: '2px solid #e5e7eb',
-  },
-  row: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '16px',
+    gap: '20px',
   },
   formGroup: {
     display: 'flex',
@@ -293,16 +295,36 @@ const styles = {
     fontWeight: '500',
     color: '#333',
   },
+  required: {
+    color: '#ef4444',
+  },
   input: {
     padding: '12px',
     border: '1px solid #ddd',
-    borderRadius: '4px',
+    borderRadius: '6px',
     fontSize: '14px',
+    width: '100%',
+    boxSizing: 'border-box',
+  },
+  radioGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+  },
+  radioLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    cursor: 'pointer',
+  },
+  radioText: {
+    fontSize: '14px',
+    color: '#333',
   },
   checkboxGroup: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '12px',
+    gap: '10px',
   },
   checkboxLabel: {
     display: 'flex',
@@ -319,7 +341,7 @@ const styles = {
     backgroundColor: '#2563eb',
     color: 'white',
     border: 'none',
-    borderRadius: '4px',
+    borderRadius: '6px',
     fontSize: '16px',
     fontWeight: '500',
     cursor: 'pointer',
@@ -329,7 +351,7 @@ const styles = {
     padding: '12px',
     backgroundColor: '#fee2e2',
     color: '#991b1b',
-    borderRadius: '4px',
+    borderRadius: '6px',
     fontSize: '14px',
   },
   text: {
@@ -348,5 +370,11 @@ const styles = {
     color: '#2563eb',
     textDecoration: 'none',
     fontSize: '14px',
+  },
+  loadingText: {
+    padding: '40px',
+    textAlign: 'center',
+    fontSize: '16px',
+    color: '#6b7280',
   },
 };

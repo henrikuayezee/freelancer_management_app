@@ -6,6 +6,8 @@
 import bcrypt from 'bcrypt';
 import { successResponse, errorResponse } from '../utils/responses.js';
 import prisma from '../utils/prisma.js';
+import { createNotification } from './notificationController.js';
+import { sendApplicationApprovedEmail, sendApplicationRejectedEmail } from '../services/emailService.js';
 
 /**
  * Submit Application (Public endpoint)
@@ -13,44 +15,14 @@ import prisma from '../utils/prisma.js';
  */
 export async function submitApplication(req, res, next) {
   try {
-    const {
-      email,
-      firstName,
-      lastName,
-      age,
-      phone,
-      city,
-      country,
-      gender,
-      timezone,
-      educationLevel,
-      degreeName,
-      educationInstitution,
-      hasLaptop,
-      hasReliableInternet,
-      remoteWorkAvailable,
-      employmentStatus,
-      preferredStartTime,
-      preferredEndTime,
-      availabilityType,
-      hoursPerWeek,
-      interestedLongTerm,
-      relevantExperience,
-      yearsOfExperience,
-      previousCompanies,
-      annotationTypes,
-      annotationMethods,
-      annotationTools,
-      strongestTool,
-      languageProficiency,
-      hasTrainedOthers,
-      complexTaskDescription,
-      howHeardAbout,
-    } = req.body;
+    const formData = req.body;
 
-    // Basic validation
-    if (!email || !firstName || !lastName || !phone || !city || !country) {
-      return errorResponse(res, 'Required fields are missing', 400);
+    // Extract required fields
+    const { email, firstName, lastName, phone } = formData;
+
+    // Basic validation - only require core fields
+    if (!email || !firstName || !lastName || !phone) {
+      return errorResponse(res, 'Required fields are missing (email, firstName, lastName, phone)', 400);
     }
 
     // Check if email already exists in applications or users
@@ -70,41 +42,48 @@ export async function submitApplication(req, res, next) {
       return errorResponse(res, 'This email is already registered', 400);
     }
 
-    // Create application
+    // Store entire form data as JSON
     const application = await prisma.freelancerApplication.create({
       data: {
+        // Core fields
         email: email.toLowerCase().trim(),
         firstName,
         lastName,
-        age: age ? parseInt(age) : null,
         phone,
-        city,
-        country,
-        gender,
-        timezone,
-        educationLevel,
-        degreeName,
-        educationInstitution,
-        hasLaptop: hasLaptop === true || hasLaptop === 'true',
-        hasReliableInternet: hasReliableInternet === true || hasReliableInternet === 'true',
-        remoteWorkAvailable: remoteWorkAvailable === true || remoteWorkAvailable === 'true',
-        employmentStatus,
-        preferredStartTime,
-        preferredEndTime,
-        availabilityType,
-        hoursPerWeek: hoursPerWeek ? parseInt(hoursPerWeek) : null,
-        interestedLongTerm: interestedLongTerm === true || interestedLongTerm === 'true',
-        relevantExperience,
-        yearsOfExperience: yearsOfExperience ? parseFloat(yearsOfExperience) : null,
-        previousCompanies,
-        annotationTypes: JSON.stringify(annotationTypes || []),
-        annotationMethods: JSON.stringify(annotationMethods || []),
-        annotationTools: JSON.stringify(annotationTools || []),
-        strongestTool,
-        languageProficiency: JSON.stringify(languageProficiency || []),
-        hasTrainedOthers: hasTrainedOthers === true || hasTrainedOthers === 'true',
-        complexTaskDescription,
-        howHeardAbout,
+
+        // Store all form data as JSON for flexibility
+        formData: JSON.stringify(formData),
+
+        // Legacy fields for backward compatibility (extract from formData if exists)
+        age: formData.age ? parseInt(formData.age) : null,
+        city: formData.city || null,
+        country: formData.country || null,
+        gender: formData.gender || null,
+        timezone: formData.timezone || null,
+        educationLevel: formData.educationLevel || null,
+        degreeName: formData.degreeName || null,
+        educationInstitution: formData.educationInstitution || null,
+        hasLaptop: formData.hasLaptop === true || formData.hasLaptop === 'true',
+        hasReliableInternet: formData.hasReliableInternet === true || formData.hasReliableInternet === 'true',
+        remoteWorkAvailable: formData.remoteWorkAvailable === true || formData.remoteWorkAvailable === 'true',
+        employmentStatus: formData.employmentStatus || null,
+        preferredStartTime: formData.preferredStartTime || null,
+        preferredEndTime: formData.preferredEndTime || null,
+        availabilityType: formData.availabilityType || null,
+        hoursPerWeek: formData.hoursPerWeek ? parseInt(formData.hoursPerWeek) : null,
+        interestedLongTerm: formData.interestedLongTerm === true || formData.interestedLongTerm === 'true',
+        relevantExperience: formData.relevantExperience || null,
+        yearsOfExperience: formData.yearsOfExperience ? parseFloat(formData.yearsOfExperience) : null,
+        previousCompanies: formData.previousCompanies || null,
+        annotationTypes: formData.annotationTypes ? JSON.stringify(formData.annotationTypes) : null,
+        annotationMethods: formData.annotationMethods ? JSON.stringify(formData.annotationMethods) : null,
+        annotationTools: formData.annotationTools ? JSON.stringify(formData.annotationTools) : null,
+        strongestTool: formData.strongestTool || null,
+        languageProficiency: formData.languageProficiency ? JSON.stringify(formData.languageProficiency) : null,
+        hasTrainedOthers: formData.hasTrainedOthers === true || formData.hasTrainedOthers === 'true',
+        complexTaskDescription: formData.complexTaskDescription || null,
+        howHeardAbout: formData.howHeardAbout || null,
+
         status: 'PENDING',
       },
     });
@@ -140,10 +119,16 @@ export async function getAllApplications(req, res, next) {
       take: parseInt(limit),
     });
 
+    // Parse formData JSON for each application
+    const applicationsWithParsedData = applications.map(app => ({
+      ...app,
+      formDataParsed: app.formData ? JSON.parse(app.formData) : null
+    }));
+
     const totalCount = await prisma.freelancerApplication.count({ where });
 
     return successResponse(res, {
-      applications,
+      applications: applicationsWithParsedData,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -263,7 +248,24 @@ export async function approveApplication(req, res, next) {
       return { user, freelancer };
     });
 
-    // TODO: Send email with credentials
+    // Create notification for approved freelancer
+    await createNotification({
+      userId: result.user.id,
+      type: 'APPLICATION_APPROVED',
+      title: 'Application Approved!',
+      message: `Congratulations ${application.firstName}! Your freelancer application has been approved. You can now log in with your credentials.`,
+      link: '/freelancer',
+      relatedId: application.id,
+      relatedType: 'APPLICATION',
+    });
+
+    // Send approval email with credentials
+    await sendApplicationApprovedEmail({
+      email: application.email,
+      firstName: application.firstName,
+      temporaryPassword: defaultPassword,
+    });
+
     // TODO: Auto-invite to Slack
 
     return successResponse(
@@ -313,7 +315,12 @@ export async function rejectApplication(req, res, next) {
       },
     });
 
-    // TODO: Send rejection email
+    // Send rejection email
+    await sendApplicationRejectedEmail({
+      email: application.email,
+      firstName: application.firstName,
+      reason: reason || 'Application did not meet requirements',
+    });
 
     return successResponse(res, null, 'Application rejected');
   } catch (error) {
