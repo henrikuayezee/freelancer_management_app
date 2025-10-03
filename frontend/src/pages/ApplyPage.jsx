@@ -23,7 +23,8 @@ export default function ApplyPage() {
     try {
       setLoadingTemplate(true);
       const response = await formTemplateAPI.getTemplate();
-      const fields = response.data.fields || [];
+      // The API returns { success: true, data: { fields: [...], updatedAt, updatedBy } }
+      const fields = response.data.data?.fields || response.data.fields || [];
       setFormFields(fields);
 
       // Initialize form data with default values

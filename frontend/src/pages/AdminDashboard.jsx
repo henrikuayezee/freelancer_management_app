@@ -18,6 +18,9 @@ export default function AdminDashboard() {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortField, setSortField] = useState('submittedAt');
+  const [sortOrder, setSortOrder] = useState('desc');
 
   useEffect(() => {
     loadApplications();
@@ -150,6 +153,66 @@ export default function AdminDashboard() {
     }
   };
 
+  // Filter and sort applications
+  const filteredAndSortedApplications = applications
+    .filter((app) => {
+      if (!searchTerm) return true;
+      const term = searchTerm.toLowerCase();
+
+      // Search in basic fields
+      if (
+        app.firstName?.toLowerCase().includes(term) ||
+        app.lastName?.toLowerCase().includes(term) ||
+        app.email?.toLowerCase().includes(term) ||
+        app.city?.toLowerCase().includes(term) ||
+        app.country?.toLowerCase().includes(term)
+      ) {
+        return true;
+      }
+
+      // Search in custom form data
+      if (app.formDataParsed) {
+        return Object.values(app.formDataParsed).some((value) =>
+          String(value).toLowerCase().includes(term)
+        );
+      }
+
+      return false;
+    })
+    .sort((a, b) => {
+      let aVal, bVal;
+
+      // Check if sorting by custom field
+      if (sortField.startsWith('custom.')) {
+        const fieldName = sortField.replace('custom.', '');
+        aVal = a.formDataParsed?.[fieldName];
+        bVal = b.formDataParsed?.[fieldName];
+      } else {
+        aVal = a[sortField];
+        bVal = b[sortField];
+      }
+
+      // Handle null/undefined values
+      if (aVal === null || aVal === undefined) return sortOrder === 'asc' ? 1 : -1;
+      if (bVal === null || bVal === undefined) return sortOrder === 'asc' ? -1 : 1;
+
+      // Compare values
+      if (typeof aVal === 'string' && typeof bVal === 'string') {
+        return sortOrder === 'asc'
+          ? aVal.localeCompare(bVal)
+          : bVal.localeCompare(aVal);
+      }
+
+      return sortOrder === 'asc' ? (aVal > bVal ? 1 : -1) : (aVal < bVal ? 1 : -1);
+    });
+
+  // Get all unique custom field names from applications
+  const customFieldNames = [...new Set(
+    applications
+      .filter(app => app.formDataParsed)
+      .flatMap(app => Object.keys(app.formDataParsed))
+  )];
+
   return (
     <AdminLayout>
       <div>
@@ -161,11 +224,19 @@ export default function AdminDashboard() {
           <div style={styles.loading}>Loading...</div>
         ) : (
           <ApplicationsTab
-            applications={applications}
+            applications={filteredAndSortedApplications}
+            allApplications={applications}
             selectedApplication={selectedApplication}
             setSelectedApplication={setSelectedApplication}
             onApprove={handleApprove}
             onReject={handleReject}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            sortField={sortField}
+            setSortField={setSortField}
+            sortOrder={sortOrder}
+            setSortOrder={setSortOrder}
+            customFieldNames={customFieldNames}
           />
         )}
       </div>
@@ -173,13 +244,23 @@ export default function AdminDashboard() {
   );
 }
 
-function ApplicationsTab({ applications, selectedApplication, setSelectedApplication, onApprove, onReject }) {
-  if (applications.length === 0) {
-    return <div style={styles.empty}>No pending applications</div>;
-  }
-
+function ApplicationsTab({
+  applications,
+  allApplications,
+  selectedApplication,
+  setSelectedApplication,
+  onApprove,
+  onReject,
+  searchTerm,
+  setSearchTerm,
+  sortField,
+  setSortField,
+  sortOrder,
+  setSortOrder,
+  customFieldNames
+}) {
   if (selectedApplication) {
-    const app = applications.find((a) => a.id === selectedApplication);
+    const app = allApplications.find((a) => a.id === selectedApplication);
     return (
       <div>
         <button onClick={() => setSelectedApplication(null)} style={styles.backButton}>
@@ -228,6 +309,17 @@ function ApplicationsTab({ applications, selectedApplication, setSelectedApplica
             </div>
           </div>
 
+          {app.formDataParsed && Object.keys(app.formDataParsed).length > 0 && (
+            <div style={styles.detailSection}>
+              <h3 style={styles.detailTitle}>Additional Information</h3>
+              <div style={styles.detailGrid}>
+                {Object.entries(app.formDataParsed).map(([key, value]) => (
+                  <DetailItem key={key} label={formatFieldLabel(key)} value={formatFieldValue(value)} />
+                ))}
+              </div>
+            </div>
+          )}
+
           <div style={styles.actions}>
             <button onClick={() => onApprove(app.id)} style={styles.approveButton}>
               ✓ Approve Application
@@ -241,40 +333,118 @@ function ApplicationsTab({ applications, selectedApplication, setSelectedApplica
     );
   }
 
+  const toggleSort = (field) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
+
   return (
-    <div style={styles.table}>
-      <table style={styles.tableElement}>
-        <thead>
-          <tr>
-            <th style={styles.th}>Name</th>
-            <th style={styles.th}>Email</th>
-            <th style={styles.th}>Location</th>
-            <th style={styles.th}>Experience</th>
-            <th style={styles.th}>Date</th>
-            <th style={styles.th}>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {applications.map((app) => (
-            <tr key={app.id} style={styles.tr}>
-              <td style={styles.td}>
-                {app.firstName} {app.lastName}
-              </td>
-              <td style={styles.td}>{app.email}</td>
-              <td style={styles.td}>
-                {app.city}, {app.country}
-              </td>
-              <td style={styles.td}>{app.yearsOfExperience || 'N/A'} years</td>
-              <td style={styles.td}>{new Date(app.submittedAt).toLocaleDateString()}</td>
-              <td style={styles.td}>
-                <button onClick={() => setSelectedApplication(app.id)} style={styles.viewButton}>
-                  View
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div>
+      {/* Filter Panel */}
+      <div style={styles.filterPanel}>
+        <div style={styles.filterRow}>
+          <input
+            type="text"
+            placeholder="Search by name, email, location, or custom fields..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={styles.searchInput}
+          />
+
+          <select
+            value={sortField}
+            onChange={(e) => setSortField(e.target.value)}
+            style={styles.filterSelect}
+          >
+            <option value="submittedAt">Sort by Date</option>
+            <option value="firstName">Sort by Name</option>
+            <option value="email">Sort by Email</option>
+            <option value="yearsOfExperience">Sort by Experience</option>
+            {customFieldNames.map((fieldName) => (
+              <option key={fieldName} value={`custom.${fieldName}`}>
+                Sort by {formatFieldLabel(fieldName)}
+              </option>
+            ))}
+          </select>
+
+          <button
+            onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+            style={styles.sortButton}
+          >
+            {sortOrder === 'asc' ? '↑ Ascending' : '↓ Descending'}
+          </button>
+
+          {(searchTerm || sortField !== 'submittedAt') && (
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setSortField('submittedAt');
+                setSortOrder('desc');
+              }}
+              style={styles.clearButton}
+            >
+              Clear Filters
+            </button>
+          )}
+        </div>
+
+        <div style={styles.resultCount}>
+          {applications.length} application{applications.length !== 1 ? 's' : ''} found
+          {allApplications.length !== applications.length && ` (${allApplications.length} total)`}
+        </div>
+      </div>
+
+      {/* Table */}
+      {applications.length === 0 ? (
+        <div style={styles.empty}>No applications match your filters</div>
+      ) : (
+        <div style={styles.table}>
+          <table style={styles.tableElement}>
+            <thead>
+              <tr>
+                <th style={styles.th} onClick={() => toggleSort('firstName')}>
+                  Name {sortField === 'firstName' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </th>
+                <th style={styles.th} onClick={() => toggleSort('email')}>
+                  Email {sortField === 'email' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </th>
+                <th style={styles.th}>Location</th>
+                <th style={styles.th} onClick={() => toggleSort('yearsOfExperience')}>
+                  Experience {sortField === 'yearsOfExperience' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </th>
+                <th style={styles.th} onClick={() => toggleSort('submittedAt')}>
+                  Date {sortField === 'submittedAt' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </th>
+                <th style={styles.th}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {applications.map((app) => (
+                <tr key={app.id} style={styles.tr}>
+                  <td style={styles.td}>
+                    {app.firstName} {app.lastName}
+                  </td>
+                  <td style={styles.td}>{app.email}</td>
+                  <td style={styles.td}>
+                    {app.city}, {app.country}
+                  </td>
+                  <td style={styles.td}>{app.yearsOfExperience || 'N/A'} years</td>
+                  <td style={styles.td}>{new Date(app.submittedAt).toLocaleDateString()}</td>
+                  <td style={styles.td}>
+                    <button onClick={() => setSelectedApplication(app.id)} style={styles.viewButton}>
+                      View
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -503,6 +673,23 @@ function DetailItem({ label, value }) {
       <span style={styles.detailValue}> {value}</span>
     </div>
   );
+}
+
+function formatFieldLabel(fieldName) {
+  // Convert camelCase or snake_case to Title Case
+  return fieldName
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/_/g, ' ')
+    .replace(/^./, (str) => str.toUpperCase())
+    .trim();
+}
+
+function formatFieldValue(value) {
+  if (value === null || value === undefined) return 'N/A';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (Array.isArray(value)) return value.join(', ');
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
 }
 
 function getStatusBadgeStyle(status) {
@@ -766,6 +953,16 @@ const styles = {
     cursor: 'pointer',
     fontSize: '14px',
     color: '#374151',
+  },
+  sortButton: {
+    padding: '8px 16px',
+    backgroundColor: '#f9fafb',
+    border: '1px solid #d1d5db',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    color: '#374151',
+    fontWeight: '500',
   },
   resultCount: {
     fontSize: '14px',

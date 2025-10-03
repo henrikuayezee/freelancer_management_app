@@ -44,11 +44,18 @@ const FormBuilderPage = () => {
 
   const loadFormTemplate = async () => {
     try {
+      console.log('📖 LOAD TEMPLATE - Starting load...');
       setLoading(true);
       const response = await formTemplateAPI.getTemplate();
-      setFormFields(response.data.fields || []);
+      console.log('📖 LOAD TEMPLATE - Response:', response);
+      console.log('📖 LOAD TEMPLATE - Response.data:', response.data);
+      // The API returns { success: true, data: { fields: [...], updatedAt, updatedBy } }
+      const fields = response.data.data?.fields || response.data.fields || [];
+      console.log('📖 LOAD TEMPLATE - Fields:', fields);
+      setFormFields(fields);
+      console.log('✅ LOAD TEMPLATE - Form fields set:', fields);
     } catch (error) {
-      console.error('Failed to load form template:', error);
+      console.error('❌ LOAD TEMPLATE - Error:', error);
       alert('Failed to load form template');
     } finally {
       setLoading(false);
@@ -57,12 +64,14 @@ const FormBuilderPage = () => {
 
   const handleSaveTemplate = async () => {
     try {
+      console.log('💾 SAVE TEMPLATE - Starting save with fields:', formFields);
       setSaving(true);
-      await formTemplateAPI.updateTemplate({ fields: formFields });
+      const response = await formTemplateAPI.updateTemplate({ fields: formFields });
+      console.log('✅ SAVE TEMPLATE - Success:', response);
       alert('Form template saved successfully!');
     } catch (error) {
-      console.error('Failed to save form template:', error);
-      alert('Failed to save form template');
+      console.error('❌ SAVE TEMPLATE - Error:', error);
+      alert('Failed to save form template: ' + (error.response?.data?.message || error.message));
     } finally {
       setSaving(false);
     }
@@ -75,7 +84,8 @@ const FormBuilderPage = () => {
     try {
       setSaving(true);
       const response = await formTemplateAPI.resetTemplate();
-      setFormFields(response.data.fields || []);
+      const fields = response.data.data?.fields || response.data.fields || [];
+      setFormFields(fields);
       alert('Form template reset to default successfully!');
     } catch (error) {
       console.error('Failed to reset form template:', error);

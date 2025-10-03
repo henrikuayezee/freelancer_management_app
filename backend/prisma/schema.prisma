@@ -140,6 +140,9 @@ model Freelancer {
   gender                String?
   age                   Int?
 
+  // Custom form data from application
+  customData            String?  // JSON object containing custom form field responses
+
   // Skills (JSON fields for flexibility)
   domainExpertise       String?  // JSON array
   annotationTypes       String?  // JSON array

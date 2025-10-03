@@ -40,6 +40,7 @@ export default function FreelancerDetailPage() {
         onboardingStatus: data.onboardingStatus,
         availabilityType: data.availabilityType,
         hoursPerWeek: data.hoursPerWeek,
+        customData: data.customData ? JSON.parse(data.customData) : {},
       });
     } catch (error) {
       alert('Failed to load freelancer');
@@ -51,7 +52,12 @@ export default function FreelancerDetailPage() {
 
   const handleSave = async () => {
     try {
-      await freelancersAPI.update(id, formData);
+      // Convert customData object back to JSON string
+      const dataToSave = {
+        ...formData,
+        customData: JSON.stringify(formData.customData || {}),
+      };
+      await freelancersAPI.update(id, dataToSave);
       alert('Freelancer updated successfully!');
       setEditing(false);
       loadFreelancer();
@@ -268,6 +274,31 @@ export default function FreelancerDetailPage() {
               </div>
             </div>
 
+            {/* Custom Data Fields */}
+            {formData.customData && Object.keys(formData.customData).length > 0 && (
+              <>
+                <h3 style={{ ...styles.sectionTitle, marginTop: '24px' }}>Application Information</h3>
+                {Object.entries(formData.customData).map(([key, value]) => (
+                  <div key={key} style={styles.formGroup}>
+                    <label style={styles.label}>{formatFieldLabel(key)}</label>
+                    <input
+                      value={value || ''}
+                      onChange={(e) => {
+                        setFormData(prev => ({
+                          ...prev,
+                          customData: {
+                            ...prev.customData,
+                            [key]: e.target.value
+                          }
+                        }));
+                      }}
+                      style={styles.input}
+                    />
+                  </div>
+                ))}
+              </>
+            )}
+
             <div style={styles.formActions}>
               <button onClick={handleSave} style={styles.saveButton}>
                 Save Changes
@@ -325,6 +356,22 @@ export default function FreelancerDetailPage() {
                     <span key={i} style={styles.skillChip}>
                       {skill}
                     </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Custom Application Data */}
+            {freelancer.customData && tryParseJSON(freelancer.customData) && Object.keys(tryParseJSON(freelancer.customData)).length > 0 && (
+              <div style={styles.section}>
+                <h3 style={styles.sectionTitle}>Application Information (Editable)</h3>
+                <div style={styles.grid}>
+                  {Object.entries(tryParseJSON(freelancer.customData)).map(([key, value]) => (
+                    <InfoItem
+                      key={key}
+                      label={formatFieldLabel(key)}
+                      value={formatFieldValue(value)}
+                    />
                   ))}
                 </div>
               </div>
@@ -478,6 +525,23 @@ function tryParseJSON(str) {
   } catch {
     return [];
   }
+}
+
+function formatFieldLabel(fieldName) {
+  // Convert camelCase or snake_case to Title Case
+  return fieldName
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/_/g, ' ')
+    .replace(/^./, (str) => str.toUpperCase())
+    .trim();
+}
+
+function formatFieldValue(value) {
+  if (value === null || value === undefined) return 'N/A';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (Array.isArray(value)) return value.join(', ');
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
 }
 
 function getStatusBadge(status) {

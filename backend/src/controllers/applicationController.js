@@ -229,6 +229,7 @@ export async function approveApplication(req, res, next) {
           timezone: application.timezone,
           gender: application.gender,
           age: application.age,
+          customData: application.formData, // Transfer custom form data to freelancer profile
           domainExpertise: '[]',
           annotationTypes: application.annotationTypes,
           annotationMethods: application.annotationMethods,

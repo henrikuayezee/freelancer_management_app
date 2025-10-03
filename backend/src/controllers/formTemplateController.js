@@ -16,20 +16,25 @@ const FORM_TEMPLATE_KEY = 'APPLICATION_FORM_TEMPLATE';
  */
 export const getFormTemplate = async (req, res) => {
   try {
+    console.log('📖 GET FORM TEMPLATE - Fetching from database...');
     const template = await prisma.systemConfig.findUnique({
       where: { key: FORM_TEMPLATE_KEY }
     });
 
+    console.log('📖 GET FORM TEMPLATE - Database result:', template ? 'Found' : 'Not found');
+
     if (!template) {
       // Return default template if none exists
+      console.log('📖 GET FORM TEMPLATE - Returning default template');
       const defaultTemplate = getDefaultFormTemplate();
       return successResponse(res, defaultTemplate, 'Default form template retrieved');
     }
 
+    console.log('📖 GET FORM TEMPLATE - Returning saved template');
     const formConfig = JSON.parse(template.value);
     return successResponse(res, formConfig, 'Form template retrieved successfully');
   } catch (error) {
-    console.error('Error fetching form template:', error);
+    console.error('❌ GET FORM TEMPLATE - Error:', error);
     return errorResponse(res, 'Failed to fetch form template', 500);
   }
 };
@@ -40,15 +45,18 @@ export const getFormTemplate = async (req, res) => {
  */
 export const updateFormTemplate = async (req, res) => {
   try {
+    console.log('📝 UPDATE FORM TEMPLATE - Request body:', JSON.stringify(req.body, null, 2));
     const { fields } = req.body;
 
     if (!fields || !Array.isArray(fields)) {
+      console.error('❌ Invalid form template data - fields:', fields);
       return errorResponse(res, 'Invalid form template data', 400);
     }
 
     // Validate each field
     for (const field of fields) {
       if (!field.id || !field.type || !field.label) {
+        console.error('❌ Invalid field:', field);
         return errorResponse(res, 'Each field must have id, type, and label', 400);
       }
     }
@@ -59,8 +67,9 @@ export const updateFormTemplate = async (req, res) => {
       updatedBy: req.user.id
     };
 
+    console.log('💾 Saving form config to database...');
     // Upsert the form template
-    await prisma.systemConfig.upsert({
+    const result = await prisma.systemConfig.upsert({
       where: { key: FORM_TEMPLATE_KEY },
       update: {
         value: JSON.stringify(formConfig),
@@ -74,10 +83,11 @@ export const updateFormTemplate = async (req, res) => {
       }
     });
 
+    console.log('✅ Form template saved successfully:', result.id);
     return successResponse(res, formConfig, 'Form template updated successfully');
   } catch (error) {
-    console.error('Error updating form template:', error);
-    return errorResponse(res, 'Failed to update form template', 500);
+    console.error('❌ Error updating form template:', error);
+    return errorResponse(res, 'Failed to update form template: ' + error.message, 500);
   }
 };
 

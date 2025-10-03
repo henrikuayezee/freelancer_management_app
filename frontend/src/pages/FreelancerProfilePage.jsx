@@ -206,6 +206,22 @@ export default function FreelancerProfilePage() {
               </div>
             )}
 
+            {/* Custom Application Data */}
+            {profile.customData && tryParseJSON(profile.customData) && Object.keys(tryParseJSON(profile.customData)).length > 0 && (
+              <div style={styles.section}>
+                <h2 style={styles.sectionTitle}>Application Information</h2>
+                <div style={styles.grid}>
+                  {Object.entries(tryParseJSON(profile.customData)).map(([key, value]) => (
+                    <InfoItem
+                      key={key}
+                      label={formatFieldLabel(key)}
+                      value={formatFieldValue(value)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Application Details */}
             {profile.application && (
               <div style={styles.section}>
@@ -248,6 +264,23 @@ function tryParseJSON(str) {
   } catch {
     return [];
   }
+}
+
+function formatFieldLabel(fieldName) {
+  // Convert camelCase or snake_case to Title Case
+  return fieldName
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/_/g, ' ')
+    .replace(/^./, (str) => str.toUpperCase())
+    .trim();
+}
+
+function formatFieldValue(value) {
+  if (value === null || value === undefined) return 'N/A';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (Array.isArray(value)) return value.join(', ');
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
 }
 
 const styles = {
