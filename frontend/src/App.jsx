@@ -7,7 +7,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
-import RegisterAdminPage from './pages/RegisterAdminPage';
 import ApplyPage from './pages/ApplyPage';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminDashboardOverview from './pages/AdminDashboardOverview';
@@ -34,7 +33,6 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/register-admin" element={<RegisterAdminPage />} />
           <Route path="/apply" element={<ApplyPage />} />
           <Route
             path="/admin"

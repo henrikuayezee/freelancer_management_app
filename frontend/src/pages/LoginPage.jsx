@@ -1,11 +1,13 @@
 /**
  * Login Page
- * Unified login form for all users with role-based routing
+ * Unified login form with AyaData branding
  */
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { colors, typography, spacing, borderRadius, shadows } from '../styles/designSystem';
+import Logo from '../components/ui/Logo';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -45,20 +47,33 @@ export default function LoginPage() {
   return (
     <div style={styles.container}>
       <div style={styles.card}>
+        {/* Back Button */}
         <div style={styles.headerContainer}>
-          <button onClick={() => navigate('/')} style={styles.backButton}>
+          <button
+            onClick={() => navigate('/')}
+            style={styles.backButton}
+            onMouseEnter={(e) => e.target.style.backgroundColor = colors.neutral[200]}
+            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+          >
             ← Back to Home
           </button>
         </div>
 
-        <h1 style={styles.title}>Freelancer Management Platform</h1>
-        <p style={styles.subtitle}>Login to your account</p>
+        {/* Logo */}
+        <div style={styles.logoContainer}>
+          <Logo size="large" />
+        </div>
 
+        {/* Header */}
+        <h1 style={styles.title}>Welcome Back</h1>
+        <p style={styles.subtitle}>Sign in to your account to continue</p>
+
+        {/* Form */}
         <form onSubmit={handleSubmit} style={styles.form}>
           {error && <div style={styles.error}>{error}</div>}
 
           <div style={styles.formGroup}>
-            <label style={styles.label}>Email</label>
+            <label style={styles.label}>Email Address</label>
             <input
               type="email"
               value={email}
@@ -66,6 +81,14 @@ export default function LoginPage() {
               required
               style={styles.input}
               placeholder="your.email@example.com"
+              onFocus={(e) => {
+                e.target.style.borderColor = colors.accent[500];
+                e.target.style.boxShadow = `0 0 0 3px ${colors.accent[100]}`;
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = colors.border.default;
+                e.target.style.boxShadow = 'none';
+              }}
             />
           </div>
 
@@ -78,26 +101,49 @@ export default function LoginPage() {
               required
               style={styles.input}
               placeholder="••••••••"
+              onFocus={(e) => {
+                e.target.style.borderColor = colors.accent[500];
+                e.target.style.boxShadow = `0 0 0 3px ${colors.accent[100]}`;
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = colors.border.default;
+                e.target.style.boxShadow = 'none';
+              }}
             />
           </div>
 
-          <button type="submit" disabled={loading} style={styles.button}>
-            {loading ? 'Logging in...' : 'Login'}
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              ...styles.button,
+              opacity: loading ? 0.7 : 1,
+              cursor: loading ? 'not-allowed' : 'pointer',
+            }}
+            onMouseEnter={(e) => {
+              if (!loading) {
+                e.target.style.backgroundColor = colors.accent[600];
+                e.target.style.transform = 'translateY(-1px)';
+                e.target.style.boxShadow = shadows.lg;
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!loading) {
+                e.target.style.backgroundColor = colors.accent[500];
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = shadows.md;
+              }
+            }}
+          >
+            {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
 
+        {/* Footer Links */}
         <div style={styles.footer}>
           <div style={styles.linkSection}>
-            <p style={styles.footerText}>Freelancer? Apply here:</p>
-            <a href="/apply" style={styles.link}>
-              Apply as Freelancer →
-            </a>
-          </div>
-          <div style={styles.linkSection}>
-            <p style={styles.footerText}>Admin? Create account:</p>
-            <a href="/register-admin" style={styles.link}>
-              Register as Admin →
-            </a>
+            <p style={styles.footerText}>New freelancer?</p>
+            <a href="/apply" style={styles.link}>Apply to join our platform →</a>
           </div>
         </div>
       </div>
@@ -111,101 +157,115 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f5f5f5',
-    padding: '20px',
+    backgroundColor: colors.background.secondary,
+    padding: spacing[6],
   },
   card: {
-    backgroundColor: 'white',
-    padding: '40px',
-    borderRadius: '8px',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-    maxWidth: '400px',
+    backgroundColor: colors.background.primary,
+    padding: spacing[10],
+    borderRadius: borderRadius.xl,
+    boxShadow: shadows.xl,
+    maxWidth: '480px',
     width: '100%',
+    border: `1px solid ${colors.border.light}`,
   },
   headerContainer: {
-    marginBottom: '20px',
+    marginBottom: spacing[6],
   },
   backButton: {
-    padding: '8px 12px',
-    backgroundColor: '#f3f4f6',
+    padding: `${spacing[2]} ${spacing[4]}`,
+    backgroundColor: 'transparent',
     border: 'none',
-    borderRadius: '4px',
+    borderRadius: borderRadius.base,
     cursor: 'pointer',
-    fontSize: '14px',
-    color: '#374151',
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.medium,
+    color: colors.text.secondary,
+    transition: 'all 0.2s ease',
+  },
+  logoContainer: {
+    display: 'flex',
+    justifyContent: 'center',
+    marginBottom: spacing[8],
   },
   title: {
-    fontSize: '24px',
-    fontWeight: 'bold',
-    marginBottom: '8px',
-    color: '#333',
+    fontSize: typography.fontSize['3xl'],
+    fontWeight: typography.fontWeight.bold,
+    marginBottom: spacing[2],
+    color: colors.text.primary,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: '14px',
-    color: '#6b7280',
+    fontSize: typography.fontSize.base,
+    color: colors.text.secondary,
     textAlign: 'center',
-    marginBottom: '24px',
+    marginBottom: spacing[10],
   },
   form: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '20px',
+    gap: spacing[5],
   },
   formGroup: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '8px',
+    gap: spacing[2],
   },
   label: {
-    fontSize: '14px',
-    fontWeight: '500',
-    color: '#333',
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.medium,
+    color: colors.text.primary,
   },
   input: {
-    padding: '12px',
-    border: '1px solid #ddd',
-    borderRadius: '4px',
-    fontSize: '14px',
+    padding: `${spacing[3]} ${spacing[4]}`,
+    border: `1px solid ${colors.border.default}`,
+    borderRadius: borderRadius.base,
+    fontSize: typography.fontSize.base,
+    fontFamily: typography.fontFamily.base,
+    color: colors.text.primary,
+    backgroundColor: colors.background.primary,
+    transition: 'all 0.2s ease',
+    outline: 'none',
   },
   button: {
-    padding: '12px',
-    backgroundColor: '#2563eb',
-    color: 'white',
+    marginTop: spacing[3],
+    padding: `${spacing[4]} ${spacing[6]}`,
+    backgroundColor: colors.accent[500],
+    color: colors.text.inverse,
     border: 'none',
-    borderRadius: '4px',
-    fontSize: '16px',
-    fontWeight: '500',
+    borderRadius: borderRadius.base,
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semibold,
     cursor: 'pointer',
-    marginTop: '8px',
+    transition: 'all 0.2s ease',
+    boxShadow: shadows.md,
   },
   error: {
-    padding: '12px',
-    backgroundColor: '#fee2e2',
-    color: '#991b1b',
-    borderRadius: '4px',
-    fontSize: '14px',
+    padding: spacing[4],
+    backgroundColor: colors.error[50],
+    color: colors.error[700],
+    borderRadius: borderRadius.base,
+    fontSize: typography.fontSize.sm,
+    border: `1px solid ${colors.error[200]}`,
   },
   footer: {
-    marginTop: '24px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '16px',
+    marginTop: spacing[10],
   },
   linkSection: {
     textAlign: 'center',
-    paddingTop: '16px',
-    borderTop: '1px solid #e5e7eb',
+    paddingTop: spacing[8],
+    borderTop: `1px solid ${colors.border.light}`,
   },
   footerText: {
-    fontSize: '14px',
-    color: '#6b7280',
-    marginBottom: '8px',
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+    marginBottom: spacing[2],
   },
   link: {
-    color: '#2563eb',
+    color: colors.accent[500],
     textDecoration: 'none',
-    fontSize: '14px',
-    fontWeight: '500',
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
+    transition: 'color 0.2s ease',
   },
 };
