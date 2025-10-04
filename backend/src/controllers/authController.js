@@ -127,3 +127,93 @@ export async function logout(req, res, next) {
     next(error);
   }
 }
+
+/**
+ * Register Admin User
+ * POST /api/auth/register-admin
+ * Public endpoint for admin self-registration
+ */
+export async function registerAdmin(req, res, next) {
+  try {
+    const { email, password, firstName, lastName, phone, department } = req.body;
+
+    // Validation
+    if (!email || !password || !firstName || !lastName) {
+      return errorResponse(res, 'Email, password, first name, and last name are required', 400);
+    }
+
+    // Validate password strength (minimum 8 characters)
+    if (password.length < 8) {
+      return errorResponse(res, 'Password must be at least 8 characters long', 400);
+    }
+
+    // Check if email already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email: email.toLowerCase().trim() },
+    });
+
+    if (existingUser) {
+      return errorResponse(res, 'This email is already registered', 400);
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    // Create user and admin profile in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Create user account
+      const user = await tx.user.create({
+        data: {
+          email: email.toLowerCase().trim(),
+          password: hashedPassword,
+          role: 'ADMIN',
+          isActive: true,
+        },
+      });
+
+      // Create admin profile
+      const adminProfile = await tx.adminProfile.create({
+        data: {
+          userId: user.id,
+          firstName,
+          lastName,
+          phone: phone || null,
+          department: department || null,
+        },
+      });
+
+      return { user, adminProfile };
+    });
+
+    // Generate tokens
+    const payload = {
+      userId: result.user.id,
+      email: result.user.email,
+      role: result.user.role,
+    };
+
+    const accessToken = generateAccessToken(payload);
+    const refreshToken = generateRefreshToken(payload);
+
+    // Prepare user data (exclude password)
+    const userData = {
+      id: result.user.id,
+      email: result.user.email,
+      role: result.user.role,
+      profile: result.adminProfile,
+    };
+
+    return successResponse(
+      res,
+      {
+        user: userData,
+        accessToken,
+        refreshToken,
+      },
+      'Admin account created successfully',
+      201
+    );
+  } catch (error) {
+    next(error);
+  }
+}

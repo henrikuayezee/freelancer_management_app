@@ -17,33 +17,33 @@ export default function HomePage() {
           <p style={styles.subtitle}>Manage your data annotation freelancers efficiently</p>
         </div>
 
-        {/* Login Options */}
+        {/* Main Actions */}
         <div style={styles.cardsContainer}>
-          {/* Admin Login Card */}
+          {/* Login Card */}
           <div style={styles.card}>
-            <div style={styles.cardIcon}>👨‍💼</div>
-            <h2 style={styles.cardTitle}>Admin Portal</h2>
+            <div style={styles.cardIcon}>🔐</div>
+            <h2 style={styles.cardTitle}>Login</h2>
             <p style={styles.cardDescription}>
-              Manage freelancers, projects, performance tracking, and tiering system
+              Sign in to access your dashboard. Admins and freelancers use the same login.
             </p>
-            <button onClick={() => navigate('/login?type=admin')} style={styles.primaryButton}>
-              Admin Login
+            <button onClick={() => navigate('/login')} style={styles.primaryButton}>
+              Sign In
             </button>
           </div>
 
-          {/* Freelancer Card */}
+          {/* Registration Options Card */}
           <div style={styles.card}>
-            <div style={styles.cardIcon}>👤</div>
-            <h2 style={styles.cardTitle}>Freelancer Portal</h2>
+            <div style={styles.cardIcon}>📝</div>
+            <h2 style={styles.cardTitle}>New User?</h2>
             <p style={styles.cardDescription}>
-              Access your profile, view projects, apply for opportunities, and track your performance
+              Create an account to get started with our platform
             </p>
             <div style={styles.buttonGroup}>
-              <button onClick={() => navigate('/login?type=freelancer')} style={styles.primaryButton}>
-                Freelancer Login
+              <button onClick={() => navigate('/apply')} style={styles.primaryButton}>
+                Apply as Freelancer
               </button>
-              <button onClick={() => navigate('/apply')} style={styles.secondaryButton}>
-                Register as Freelancer
+              <button onClick={() => navigate('/register-admin')} style={styles.secondaryButton}>
+                Register as Admin
               </button>
             </div>
           </div>

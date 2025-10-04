@@ -1,15 +1,13 @@
 /**
  * Login Page
- * Admin and Freelancer login form with tabs
+ * Unified login form for all users with role-based routing
  */
 
-import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function LoginPage() {
-  const [searchParams] = useSearchParams();
-  const [loginType, setLoginType] = useState('admin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -17,13 +15,6 @@ export default function LoginPage() {
 
   const { login } = useAuth();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const type = searchParams.get('type');
-    if (type === 'freelancer') {
-      setLoginType('freelancer');
-    }
-  }, [searchParams]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -33,32 +24,15 @@ export default function LoginPage() {
     const result = await login(email, password);
 
     if (result.success) {
-      // Check if user role matches the selected login type
+      // Get user role and redirect accordingly
       const storedUser = JSON.parse(localStorage.getItem('user'));
       const userRole = storedUser?.role;
-
-      if (loginType === 'freelancer' && userRole !== 'FREELANCER') {
-        setError('Invalid credentials. This login is for freelancers only. Please use the Admin Login tab.');
-        // Logout the user
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('user');
-        setLoading(false);
-        return;
-      }
-
-      if (loginType === 'admin' && userRole === 'FREELANCER') {
-        setError('Invalid credentials. This login is for administrators only. Please use the Freelancer Login tab.');
-        // Logout the user
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('user');
-        setLoading(false);
-        return;
-      }
 
       // Redirect based on user role
       if (userRole === 'FREELANCER') {
         navigate('/freelancer');
       } else {
+        // All other roles (ADMIN, PROJECT_MANAGER, etc.) go to admin dashboard
         navigate('/admin');
       }
     } else {
@@ -78,28 +52,7 @@ export default function LoginPage() {
         </div>
 
         <h1 style={styles.title}>Freelancer Management Platform</h1>
-
-        {/* Tabs */}
-        <div style={styles.tabs}>
-          <button
-            onClick={() => setLoginType('admin')}
-            style={{
-              ...styles.tab,
-              ...(loginType === 'admin' && styles.activeTab),
-            }}
-          >
-            Admin Login
-          </button>
-          <button
-            onClick={() => setLoginType('freelancer')}
-            style={{
-              ...styles.tab,
-              ...(loginType === 'freelancer' && styles.activeTab),
-            }}
-          >
-            Freelancer Login
-          </button>
-        </div>
+        <p style={styles.subtitle}>Login to your account</p>
 
         <form onSubmit={handleSubmit} style={styles.form}>
           {error && <div style={styles.error}>{error}</div>}
@@ -112,7 +65,7 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               style={styles.input}
-              placeholder="admin@ayadata.com"
+              placeholder="your.email@example.com"
             />
           </div>
 
@@ -133,14 +86,20 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {loginType === 'freelancer' && (
-          <div style={styles.footer}>
-            <p style={styles.footerText}>Don't have an account?</p>
+        <div style={styles.footer}>
+          <div style={styles.linkSection}>
+            <p style={styles.footerText}>Freelancer? Apply here:</p>
             <a href="/apply" style={styles.link}>
-              Register as Freelancer →
+              Apply as Freelancer →
             </a>
           </div>
-        )}
+          <div style={styles.linkSection}>
+            <p style={styles.footerText}>Admin? Create account:</p>
+            <a href="/register-admin" style={styles.link}>
+              Register as Admin →
+            </a>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -178,31 +137,15 @@ const styles = {
   title: {
     fontSize: '24px',
     fontWeight: 'bold',
-    marginBottom: '24px',
+    marginBottom: '8px',
     color: '#333',
     textAlign: 'center',
   },
-  tabs: {
-    display: 'flex',
-    gap: '8px',
-    marginBottom: '24px',
-    borderBottom: '2px solid #e5e7eb',
-  },
-  tab: {
-    flex: 1,
-    padding: '12px',
-    backgroundColor: 'transparent',
-    border: 'none',
-    borderBottom: '3px solid transparent',
-    cursor: 'pointer',
+  subtitle: {
     fontSize: '14px',
-    fontWeight: '500',
     color: '#6b7280',
-    transition: 'all 0.2s',
-  },
-  activeTab: {
-    color: '#2563eb',
-    borderBottomColor: '#2563eb',
+    textAlign: 'center',
+    marginBottom: '24px',
   },
   form: {
     display: 'flex',
@@ -245,7 +188,14 @@ const styles = {
   },
   footer: {
     marginTop: '24px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
+  },
+  linkSection: {
     textAlign: 'center',
+    paddingTop: '16px',
+    borderTop: '1px solid #e5e7eb',
   },
   footerText: {
     fontSize: '14px',

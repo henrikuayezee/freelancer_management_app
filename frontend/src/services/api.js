@@ -49,6 +49,7 @@ export const authAPI = {
   login: (email, password) => api.post('/api/auth/login', { email, password }),
   getCurrentUser: () => api.get('/api/auth/me'),
   logout: () => api.post('/api/auth/logout'),
+  registerAdmin: (data) => api.post('/api/auth/register-admin', data),
 };
 
 // ====================
