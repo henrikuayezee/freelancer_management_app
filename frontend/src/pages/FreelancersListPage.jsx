@@ -54,7 +54,7 @@ export default function FreelancersListPage() {
               >
                 <div style={styles.cardHeader}>
                   <h3 style={styles.name}>
-                    {freelancer.firstName} {freelancer.lastName}
+                    {freelancer.firstName} {freelancer.middleName ? freelancer.middleName + ' ' : ''}{freelancer.lastName}
                   </h3>
                   <span
                     style={{

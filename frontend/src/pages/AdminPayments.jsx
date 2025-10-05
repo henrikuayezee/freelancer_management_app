@@ -291,7 +291,7 @@ export default function AdminPayments() {
               >
                 <div style={styles.paymentInfo}>
                   <h3 style={styles.paymentPeriod}>
-                    {payment.freelancer.firstName} {payment.freelancer.lastName} - {getMonthName(payment.month)} {payment.year}
+                    {payment.freelancer.firstName} {payment.freelancer.middleName ? payment.freelancer.middleName + ' ' : ''}{payment.freelancer.lastName} - {getMonthName(payment.month)} {payment.year}
                   </h3>
                   <p style={styles.paymentDates}>
                     {formatDate(payment.periodStart)} - {formatDate(payment.periodEnd)}

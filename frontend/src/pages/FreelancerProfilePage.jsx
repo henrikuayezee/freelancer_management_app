@@ -158,6 +158,7 @@ export default function FreelancerProfilePage() {
               <h2 style={styles.sectionTitle}>Personal Information</h2>
               <div style={styles.grid}>
                 <InfoItem label="First Name" value={profile.firstName} />
+                {profile.middleName && <InfoItem label="Middle Name" value={profile.middleName} />}
                 <InfoItem label="Last Name" value={profile.lastName} />
                 <InfoItem label="Email" value={profile.email} />
                 <InfoItem label="Phone" value={profile.phone} />

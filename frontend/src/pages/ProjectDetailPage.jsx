@@ -257,7 +257,7 @@ export default function ProjectDetailPage() {
                         }}
                         style={styles.link}
                       >
-                        {assignment.freelancer.firstName} {assignment.freelancer.lastName}
+                        {assignment.freelancer.firstName} {assignment.freelancer.middleName ? assignment.freelancer.middleName + ' ' : ''}{assignment.freelancer.lastName}
                       </a>
                     </td>
                     <td style={styles.td}>{assignment.freelancer.email}</td>
@@ -364,7 +364,7 @@ function AssignFreelancerModal({ projectId, onClose, onSuccess }) {
                   <option value="">Select a freelancer</option>
                   {freelancers.map((fl) => (
                     <option key={fl.id} value={fl.id}>
-                      {fl.freelancerId} - {fl.firstName} {fl.lastName} ({fl.currentTier} - {fl.currentGrade})
+                      {fl.freelancerId} - {fl.firstName} {fl.middleName ? fl.middleName + ' ' : ''}{fl.lastName} ({fl.currentTier} - {fl.currentGrade})
                     </option>
                   ))}
                 </select>

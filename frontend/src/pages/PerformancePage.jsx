@@ -86,7 +86,7 @@ export default function PerformancePage() {
                       }}
                       style={styles.link}
                     >
-                      {record.freelancer.firstName} {record.freelancer.lastName}
+                      {record.freelancer.firstName} {record.freelancer.middleName ? record.freelancer.middleName + ' ' : ''}{record.freelancer.lastName}
                     </a>
                   </td>
                   <td style={styles.td}>{record.project ? record.project.name : 'N/A'}</td>
@@ -201,7 +201,7 @@ function CreatePerformanceModal({ onClose, onSuccess }) {
                 <option value="">Select freelancer</option>
                 {freelancers.map((fl) => (
                   <option key={fl.id} value={fl.id}>
-                    {fl.freelancerId} - {fl.firstName} {fl.lastName}
+                    {fl.freelancerId} - {fl.firstName} {fl.middleName ? fl.middleName + ' ' : ''}{fl.lastName}
                   </option>
                 ))}
               </select>

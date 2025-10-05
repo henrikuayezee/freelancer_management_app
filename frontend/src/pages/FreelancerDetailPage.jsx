@@ -138,7 +138,7 @@ export default function FreelancerDetailPage() {
         <div style={styles.profileHeader}>
           <div>
             <h1 style={styles.name}>
-              {freelancer.firstName} {freelancer.lastName}
+              {freelancer.firstName} {freelancer.middleName ? freelancer.middleName + ' ' : ''}{freelancer.lastName}
             </h1>
             <p style={styles.id}>{freelancer.freelancerId}</p>
           </div>

@@ -215,7 +215,7 @@ export default function UsersPage() {
                     <td style={styles.td}>{user.email}</td>
                     <td style={styles.td}>
                       {user.freelancer
-                        ? `${user.freelancer.firstName} ${user.freelancer.lastName}`
+                        ? `${user.freelancer.firstName}${user.freelancer.middleName ? ' ' + user.freelancer.middleName : ''} ${user.freelancer.lastName}`
                         : user.adminProfile
                         ? `${user.adminProfile.firstName} ${user.adminProfile.lastName}`
                         : 'N/A'}

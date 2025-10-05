@@ -334,7 +334,7 @@ export async function resetPassword(req, res, next) {
 export async function changePassword(req, res, next) {
   try {
     const { currentPassword, newPassword } = req.body;
-    const userId = req.user.userId;
+    const userId = req.user.id;
 
     if (!currentPassword || !newPassword) {
       return errorResponse(res, 'Current password and new password are required', 400);
