@@ -17,8 +17,8 @@ const FORM_TEMPLATE_KEY = 'APPLICATION_FORM_TEMPLATE';
 export const getFormTemplate = async (req, res) => {
   try {
     console.log('📖 GET FORM TEMPLATE - Fetching from database...');
-    const template = await prisma.systemConfig.findUnique({
-      where: { key: FORM_TEMPLATE_KEY }
+    const template = await prisma.formTemplate.findFirst({
+      orderBy: { updatedAt: 'desc' }
     });
 
     console.log('📖 GET FORM TEMPLATE - Database result:', template ? 'Found' : 'Not found');
@@ -31,7 +31,12 @@ export const getFormTemplate = async (req, res) => {
     }
 
     console.log('📖 GET FORM TEMPLATE - Returning saved template');
-    const formConfig = JSON.parse(template.value);
+    const formConfig = {
+      fields: JSON.parse(template.fields),
+      fieldMapping: template.fieldMapping ? JSON.parse(template.fieldMapping) : {},
+      updatedAt: template.updatedAt,
+      updatedBy: template.updatedBy
+    };
     return successResponse(res, formConfig, 'Form template retrieved successfully');
   } catch (error) {
     console.error('❌ GET FORM TEMPLATE - Error:', error);
@@ -46,7 +51,7 @@ export const getFormTemplate = async (req, res) => {
 export const updateFormTemplate = async (req, res) => {
   try {
     console.log('📝 UPDATE FORM TEMPLATE - Request body:', JSON.stringify(req.body, null, 2));
-    const { fields } = req.body;
+    const { fields, fieldMapping } = req.body;
 
     if (!fields || !Array.isArray(fields)) {
       console.error('❌ Invalid form template data - fields:', fields);
@@ -61,27 +66,39 @@ export const updateFormTemplate = async (req, res) => {
       }
     }
 
+    console.log('💾 Saving form config to FormTemplate table...');
+
+    // Check if template exists
+    const existing = await prisma.formTemplate.findFirst();
+
+    let result;
+    if (existing) {
+      // Update existing
+      result = await prisma.formTemplate.update({
+        where: { id: existing.id },
+        data: {
+          fields: JSON.stringify(fields),
+          fieldMapping: fieldMapping ? JSON.stringify(fieldMapping) : null,
+          updatedBy: req.user.id,
+        }
+      });
+    } else {
+      // Create new
+      result = await prisma.formTemplate.create({
+        data: {
+          fields: JSON.stringify(fields),
+          fieldMapping: fieldMapping ? JSON.stringify(fieldMapping) : null,
+          updatedBy: req.user.id,
+        }
+      });
+    }
+
     const formConfig = {
       fields,
-      updatedAt: new Date().toISOString(),
-      updatedBy: req.user.id
+      fieldMapping,
+      updatedAt: result.updatedAt,
+      updatedBy: result.updatedBy
     };
-
-    console.log('💾 Saving form config to database...');
-    // Upsert the form template
-    const result = await prisma.systemConfig.upsert({
-      where: { key: FORM_TEMPLATE_KEY },
-      update: {
-        value: JSON.stringify(formConfig),
-        updatedBy: req.user.id,
-      },
-      create: {
-        key: FORM_TEMPLATE_KEY,
-        value: JSON.stringify(formConfig),
-        description: 'Application form template configuration',
-        updatedBy: req.user.id,
-      }
-    });
 
     console.log('✅ Form template saved successfully:', result.id);
     return successResponse(res, formConfig, 'Form template updated successfully');
@@ -99,19 +116,29 @@ export const resetFormTemplate = async (req, res) => {
   try {
     const defaultTemplate = getDefaultFormTemplate();
 
-    await prisma.systemConfig.upsert({
-      where: { key: FORM_TEMPLATE_KEY },
-      update: {
-        value: JSON.stringify(defaultTemplate),
-        updatedBy: req.user.id,
-      },
-      create: {
-        key: FORM_TEMPLATE_KEY,
-        value: JSON.stringify(defaultTemplate),
-        description: 'Application form template configuration',
-        updatedBy: req.user.id,
-      }
-    });
+    // Check if template exists
+    const existing = await prisma.formTemplate.findFirst();
+
+    if (existing) {
+      // Update existing
+      await prisma.formTemplate.update({
+        where: { id: existing.id },
+        data: {
+          fields: JSON.stringify(defaultTemplate.fields),
+          fieldMapping: null,
+          updatedBy: req.user.id,
+        }
+      });
+    } else {
+      // Create new
+      await prisma.formTemplate.create({
+        data: {
+          fields: JSON.stringify(defaultTemplate.fields),
+          fieldMapping: null,
+          updatedBy: req.user.id,
+        }
+      });
+    }
 
     return successResponse(res, defaultTemplate, 'Form template reset to default');
   } catch (error) {

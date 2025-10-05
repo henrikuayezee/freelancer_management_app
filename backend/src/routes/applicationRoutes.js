@@ -9,6 +9,7 @@ import {
   getApplicationById,
   approveApplication,
   rejectApplication,
+  deleteApplication,
 } from '../controllers/applicationController.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 
@@ -44,6 +45,13 @@ router.post(
   authenticate,
   requireRole(['ADMIN', 'PROJECT_MANAGER']),
   rejectApplication
+);
+
+router.delete(
+  '/:id',
+  authenticate,
+  requireRole(['ADMIN', 'PROJECT_MANAGER']),
+  deleteApplication
 );
 
 export default router;

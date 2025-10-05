@@ -66,7 +66,15 @@ const FormBuilderPage = () => {
     try {
       console.log('💾 SAVE TEMPLATE - Starting save with fields:', formFields);
       setSaving(true);
-      const response = await formTemplateAPI.updateTemplate({ fields: formFields });
+
+      // Auto-detect field mappings for core fields
+      const fieldMapping = autoDetectFieldMappings(formFields);
+      console.log('🗺️ Auto-detected field mappings:', fieldMapping);
+
+      const response = await formTemplateAPI.updateTemplate({
+        fields: formFields,
+        fieldMapping
+      });
       console.log('✅ SAVE TEMPLATE - Success:', response);
       alert('Form template saved successfully!');
     } catch (error) {
@@ -75,6 +83,56 @@ const FormBuilderPage = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  // Auto-detect which fields map to core required fields
+  const autoDetectFieldMappings = (fields) => {
+    const mapping = {};
+
+    fields.forEach(field => {
+      const idLower = field.id.toLowerCase();
+      const labelLower = field.label.toLowerCase();
+
+      // Detect email field
+      if (!mapping.email && (
+        idLower.includes('email') ||
+        labelLower.includes('email') ||
+        field.type === 'email'
+      )) {
+        mapping.email = field.id;
+      }
+
+      // Detect firstName field
+      if (!mapping.firstName && (
+        idLower.includes('firstname') ||
+        idLower.includes('first_name') ||
+        idLower.includes('first name') ||
+        labelLower.includes('first name')
+      )) {
+        mapping.firstName = field.id;
+      }
+
+      // Detect lastName field
+      if (!mapping.lastName && (
+        idLower.includes('lastname') ||
+        idLower.includes('last_name') ||
+        idLower.includes('last name') ||
+        labelLower.includes('last name')
+      )) {
+        mapping.lastName = field.id;
+      }
+
+      // Detect phone field
+      if (!mapping.phone && (
+        idLower.includes('phone') ||
+        labelLower.includes('phone') ||
+        field.type === 'tel'
+      )) {
+        mapping.phone = field.id;
+      }
+    });
+
+    return mapping;
   };
 
   const handleResetTemplate = async () => {
@@ -95,21 +153,38 @@ const FormBuilderPage = () => {
     }
   };
 
-  const handleAddField = () => {
+  const handleAddField = (insertAfterIndex = null) => {
     if (!newField.label) {
       alert('Please enter a field label');
       return;
     }
     const id = newField.id || newField.label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
     const field = { ...newField, id };
-    setFormFields([...formFields, field]);
+
+    if (insertAfterIndex !== null) {
+      // Insert after specific index
+      const updatedFields = [...formFields];
+      updatedFields.splice(insertAfterIndex + 1, 0, field);
+      setFormFields(updatedFields);
+    } else {
+      // Add to end
+      setFormFields([...formFields, field]);
+    }
+
     setNewField({ id: '', type: 'text', label: '', placeholder: '', required: false, options: [] });
     setShowAddField(false);
+    setEditingField(null);
   };
 
   const handleEditField = (index) => {
     setEditingField(index);
     setNewField({ ...formFields[index] });
+    setShowAddField(true);
+  };
+
+  const handleAddFieldBelow = (index) => {
+    setEditingField(index); // Store the index to insert after
+    setNewField({ id: '', type: 'text', label: '', placeholder: '', required: false, options: [] });
     setShowAddField(true);
   };
 
@@ -260,37 +335,57 @@ const FormBuilderPage = () => {
                 <div style={styles.emptyState}>No fields added yet. Click "Add New Field" to get started.</div>
               ) : (
                 formFields.map((field, index) => (
-                  <div key={field.id} style={styles.fieldItem}>
-                    <div style={styles.fieldInfo}>
-                      <div style={styles.fieldHeader}>
-                        <span style={styles.fieldLabel}>{field.label}</span>
-                        {field.required && <span style={styles.requiredBadge}>Required</span>}
-                      </div>
-                      <div style={styles.fieldMeta}>
-                        <span style={styles.fieldType}>{fieldTypes.find(t => t.value === field.type)?.label || field.type}</span>
-                        <span style={styles.fieldId}>ID: {field.id}</span>
-                      </div>
-                      {field.options && field.options.length > 0 && (
-                        <div style={styles.fieldOptions}>
-                          Options: {field.options.join(', ')}
+                  <React.Fragment key={field.id}>
+                    <div style={styles.fieldItem}>
+                      <div style={styles.fieldInfo}>
+                        <div style={styles.fieldHeader}>
+                          <span style={styles.fieldLabel}>{field.label}</span>
+                          {field.required && <span style={styles.requiredBadge}>Required</span>}
                         </div>
-                      )}
+                        <div style={styles.fieldMeta}>
+                          <span style={styles.fieldType}>{fieldTypes.find(t => t.value === field.type)?.label || field.type}</span>
+                          <span style={styles.fieldId}>ID: {field.id}</span>
+                        </div>
+                        {field.options && field.options.length > 0 && (
+                          <div style={styles.fieldOptions}>
+                            Options: {field.options.join(', ')}
+                          </div>
+                        )}
+                      </div>
+                      <div style={styles.fieldActions}>
+                        <button onClick={() => handleMoveField(index, 'up')} disabled={index === 0} style={styles.moveBtn} title="Move up">
+                          ↑
+                        </button>
+                        <button onClick={() => handleMoveField(index, 'down')} disabled={index === formFields.length - 1} style={styles.moveBtn} title="Move down">
+                          ↓
+                        </button>
+                        <button onClick={() => handleEditField(index)} style={styles.editBtn}>
+                          Edit
+                        </button>
+                        <button onClick={() => handleAddFieldBelow(index)} style={styles.addBelowBtn}>
+                          + Add Below
+                        </button>
+                        <button onClick={() => handleDeleteField(index)} style={styles.deleteBtn}>
+                          Delete
+                        </button>
+                      </div>
                     </div>
-                    <div style={styles.fieldActions}>
-                      <button onClick={() => handleMoveField(index, 'up')} disabled={index === 0} style={styles.moveBtn} title="Move up">
-                        ↑
-                      </button>
-                      <button onClick={() => handleMoveField(index, 'down')} disabled={index === formFields.length - 1} style={styles.moveBtn} title="Move down">
-                        ↓
-                      </button>
-                      <button onClick={() => handleEditField(index)} style={styles.editBtn}>
-                        Edit
-                      </button>
-                      <button onClick={() => handleDeleteField(index)} style={styles.deleteBtn}>
-                        Delete
-                      </button>
-                    </div>
-                  </div>
+
+                    {/* Inline Edit/Add Form */}
+                    {showAddField && editingField === index && (
+                      <FieldEditorForm
+                        field={newField}
+                        setField={setNewField}
+                        fieldTypes={fieldTypes}
+                        onSave={newField.id === formFields[index].id ? handleUpdateField : () => handleAddField(index)}
+                        onCancel={() => { setShowAddField(false); setEditingField(null); setNewField({ id: '', type: 'text', label: '', placeholder: '', required: false, options: [] }); }}
+                        handleAddOption={handleAddOption}
+                        handleUpdateOption={handleUpdateOption}
+                        handleDeleteOption={handleDeleteOption}
+                        isEditing={newField.id === formFields[index].id}
+                      />
+                    )}
+                  </React.Fragment>
                 ))
               )}
             </div>
@@ -352,6 +447,69 @@ const FormBuilderPage = () => {
     </AdminLayout>
   );
 };
+
+// Separate component for the field editor form
+function FieldEditorForm({ field, setField, fieldTypes, onSave, onCancel, handleAddOption, handleUpdateOption, handleDeleteOption, isEditing }) {
+  return (
+    <div style={styles.inlineFieldEditor}>
+      <h4 style={styles.inlineEditorTitle}>{isEditing ? 'Edit Field' : 'Add New Field Below'}</h4>
+
+      <div style={styles.formGroup}>
+        <label style={styles.label}>Field Type</label>
+        <select value={field.type} onChange={(e) => setField({ ...field, type: e.target.value })} style={styles.select}>
+          {fieldTypes.map(type => (
+            <option key={type.value} value={type.value}>{type.label}</option>
+          ))}
+        </select>
+      </div>
+
+      <div style={styles.formGroup}>
+        <label style={styles.label}>Field ID (optional)</label>
+        <input type="text" value={field.id} onChange={(e) => setField({ ...field, id: e.target.value })} placeholder="Auto-generated from label" style={styles.input} />
+      </div>
+
+      <div style={styles.formGroup}>
+        <label style={styles.label}>Label *</label>
+        <input type="text" value={field.label} onChange={(e) => setField({ ...field, label: e.target.value })} placeholder="Enter field label" style={styles.input} />
+      </div>
+
+      <div style={styles.formGroup}>
+        <label style={styles.label}>Placeholder</label>
+        <input type="text" value={field.placeholder || ''} onChange={(e) => setField({ ...field, placeholder: e.target.value })} placeholder="Enter placeholder text" style={styles.input} />
+      </div>
+
+      <div style={styles.formGroup}>
+        <label style={styles.checkboxLabel}>
+          <input type="checkbox" checked={field.required} onChange={(e) => setField({ ...field, required: e.target.checked })} />
+          <span style={styles.checkboxText}>Required field</span>
+        </label>
+      </div>
+
+      {/* Options for select, radio, checkboxGroup */}
+      {(['select', 'radio', 'checkboxGroup'].includes(field.type)) && (
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Options</label>
+          {(field.options || []).map((option, index) => (
+            <div key={index} style={styles.optionRow}>
+              <input type="text" value={option} onChange={(e) => handleUpdateOption(index, e.target.value)} placeholder={`Option ${index + 1}`} style={styles.optionInput} />
+              <button onClick={() => handleDeleteOption(index)} style={styles.deleteOptionBtn}>×</button>
+            </div>
+          ))}
+          <button onClick={handleAddOption} style={styles.addOptionBtn}>+ Add Option</button>
+        </div>
+      )}
+
+      <div style={styles.editorActions}>
+        <button onClick={onCancel} style={styles.cancelBtn}>
+          Cancel
+        </button>
+        <button onClick={onSave} style={styles.saveFieldBtn}>
+          {isEditing ? 'Update Field' : 'Add Field'}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 const styles = {
   container: {
@@ -441,11 +599,25 @@ const styles = {
     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
     marginBottom: '20px',
   },
+  inlineFieldEditor: {
+    backgroundColor: '#f0f9ff',
+    padding: '20px',
+    borderRadius: '8px',
+    marginTop: '10px',
+    marginBottom: '15px',
+    border: '2px solid #2563eb',
+  },
   editorTitle: {
     margin: '0 0 20px 0',
     fontSize: '18px',
     fontWeight: '600',
     color: '#1f2937',
+  },
+  inlineEditorTitle: {
+    margin: '0 0 15px 0',
+    fontSize: '16px',
+    fontWeight: '600',
+    color: '#1e40af',
   },
   formGroup: {
     marginBottom: '15px',
@@ -633,6 +805,16 @@ const styles = {
     borderRadius: '4px',
     cursor: 'pointer',
     fontSize: '13px',
+  },
+  addBelowBtn: {
+    padding: '5px 12px',
+    backgroundColor: '#10b981',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: '500',
   },
   deleteBtn: {
     padding: '5px 12px',

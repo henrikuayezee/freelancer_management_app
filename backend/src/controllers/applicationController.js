@@ -17,13 +17,38 @@ export async function submitApplication(req, res, next) {
   try {
     const formData = req.body;
 
-    // Extract required fields
-    const { email, firstName, lastName, phone } = formData;
+    // Get form template to understand field mappings
+    const template = await prisma.formTemplate.findFirst({
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    let email, firstName, lastName, phone;
+
+    if (template && template.fieldMapping) {
+      // Use field mapping from template
+      const mapping = JSON.parse(template.fieldMapping);
+      email = formData[mapping.email] || formData.email || formData.personalEmail;
+      firstName = formData[mapping.firstName] || formData.firstName || formData.first_name;
+      lastName = formData[mapping.lastName] || formData.lastName || formData.last_name;
+      phone = formData[mapping.phone] || formData.phone || formData.phoneNumber || formData.phone_number;
+    } else {
+      // Fallback to common field name variations
+      email = formData.email || formData.personalEmail;
+      firstName = formData.firstName || formData.first_name;
+      lastName = formData.lastName || formData.last_name;
+      phone = formData.phone || formData.phoneNumber || formData.phone_number;
+    }
 
     // Basic validation - only require core fields
     if (!email || !firstName || !lastName || !phone) {
       return errorResponse(res, 'Required fields are missing (email, firstName, lastName, phone)', 400);
     }
+
+    // Add standardized field names to formData for consistency
+    formData.email = email;
+    formData.firstName = firstName;
+    formData.lastName = lastName;
+    formData.phone = phone;
 
     // Check if email already exists in applications or users
     const existingApplication = await prisma.freelancerApplication.findUnique({
@@ -325,6 +350,39 @@ export async function rejectApplication(req, res, next) {
     });
 
     return successResponse(res, null, 'Application rejected');
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Delete Application (Admin only)
+ * DELETE /api/applications/:id
+ */
+export async function deleteApplication(req, res, next) {
+  try {
+    const { id } = req.params;
+
+    // Get application
+    const application = await prisma.freelancerApplication.findUnique({
+      where: { id },
+    });
+
+    if (!application) {
+      return errorResponse(res, 'Application not found', 404);
+    }
+
+    // Only allow deletion of approved or rejected applications
+    if (application.status === 'PENDING') {
+      return errorResponse(res, 'Cannot delete pending applications. Please approve or reject first.', 400);
+    }
+
+    // Delete the application
+    await prisma.freelancerApplication.delete({
+      where: { id },
+    });
+
+    return successResponse(res, null, `Application deleted successfully. The email ${application.email} can now apply again.`);
   } catch (error) {
     next(error);
   }

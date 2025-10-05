@@ -65,6 +65,7 @@ export const applicationsAPI = {
   getById: (id) => api.get(`/api/applications/${id}`),
   approve: (id) => api.post(`/api/applications/${id}/approve`),
   reject: (id, reason) => api.post(`/api/applications/${id}/reject`, { reason }),
+  delete: (id) => api.delete(`/api/applications/${id}`),
 };
 
 // ====================

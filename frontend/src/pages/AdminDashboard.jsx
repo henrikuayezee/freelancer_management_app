@@ -12,8 +12,8 @@ import AdminLayout from '../components/AdminLayout';
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const statusFilter = searchParams.get('status') || '';
+  const [searchParams, setSearchParams] = useSearchParams();
+  const statusFilter = searchParams.get('status') || 'PENDING';
 
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -153,6 +153,21 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this application? This will allow the email to apply again.')) {
+      return;
+    }
+
+    try {
+      const response = await applicationsAPI.delete(id);
+      alert(response.data.message);
+      loadApplications();
+      setSelectedApplication(null);
+    } catch (error) {
+      alert('Failed to delete application: ' + error.response?.data?.message);
+    }
+  };
+
   // Filter and sort applications
   const filteredAndSortedApplications = applications
     .filter((app) => {
@@ -213,12 +228,46 @@ export default function AdminDashboard() {
       .flatMap(app => Object.keys(app.formDataParsed))
   )];
 
+  const changeStatusTab = (status) => {
+    setSearchParams({ status });
+    setSelectedApplication(null);
+  };
+
   return (
     <AdminLayout>
       <div>
-        <h2 style={styles.pageTitle}>
-          {statusFilter ? `${statusFilter} Applications` : 'All Applications'}
-        </h2>
+        <h2 style={styles.pageTitle}>Applications</h2>
+
+        {/* Status Tabs */}
+        <div style={styles.tabs}>
+          <button
+            onClick={() => changeStatusTab('PENDING')}
+            style={{
+              ...styles.tab,
+              ...(statusFilter === 'PENDING' ? styles.activeTab : {})
+            }}
+          >
+            Pending
+          </button>
+          <button
+            onClick={() => changeStatusTab('APPROVED')}
+            style={{
+              ...styles.tab,
+              ...(statusFilter === 'APPROVED' ? styles.activeTab : {})
+            }}
+          >
+            Approved
+          </button>
+          <button
+            onClick={() => changeStatusTab('REJECTED')}
+            style={{
+              ...styles.tab,
+              ...(statusFilter === 'REJECTED' ? styles.activeTab : {})
+            }}
+          >
+            Rejected
+          </button>
+        </div>
 
         {loading ? (
           <div style={styles.loading}>Loading...</div>
@@ -230,6 +279,8 @@ export default function AdminDashboard() {
             setSelectedApplication={setSelectedApplication}
             onApprove={handleApprove}
             onReject={handleReject}
+            onDelete={handleDelete}
+            statusFilter={statusFilter}
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
             sortField={sortField}
@@ -251,6 +302,8 @@ function ApplicationsTab({
   setSelectedApplication,
   onApprove,
   onReject,
+  onDelete,
+  statusFilter,
   searchTerm,
   setSearchTerm,
   sortField,
@@ -321,12 +374,26 @@ function ApplicationsTab({
           )}
 
           <div style={styles.actions}>
-            <button onClick={() => onApprove(app.id)} style={styles.approveButton}>
-              ✓ Approve Application
-            </button>
-            <button onClick={() => onReject(app.id)} style={styles.rejectButton}>
-              ✗ Reject Application
-            </button>
+            {app.status === 'PENDING' ? (
+              <>
+                <button onClick={() => onApprove(app.id)} style={styles.approveButton}>
+                  ✓ Approve Application
+                </button>
+                <button onClick={() => onReject(app.id)} style={styles.rejectButton}>
+                  ✗ Reject Application
+                </button>
+              </>
+            ) : (
+              <>
+                <div style={styles.statusBadge}>
+                  Status: <strong>{app.status}</strong>
+                  {app.reviewedAt && ` (${new Date(app.reviewedAt).toLocaleDateString()})`}
+                </div>
+                <button onClick={() => onDelete(app.id)} style={styles.deleteButton}>
+                  🗑 Delete Application
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -762,16 +829,16 @@ const styles = {
   tab: {
     padding: '16px 24px',
     border: 'none',
+    borderBottom: '2px solid transparent',
     backgroundColor: 'transparent',
     cursor: 'pointer',
     fontSize: '14px',
     fontWeight: '500',
     color: '#6b7280',
-    borderBottom: '2px solid transparent',
   },
   activeTab: {
     color: '#2563eb',
-    borderBottomColor: '#2563eb',
+    borderBottom: '2px solid #2563eb',
   },
   content: {
     padding: '40px',
@@ -907,6 +974,27 @@ const styles = {
     cursor: 'pointer',
     fontSize: '14px',
     fontWeight: '500',
+  },
+  deleteButton: {
+    padding: '12px 24px',
+    backgroundColor: '#dc2626',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '500',
+  },
+  statusBadge: {
+    flex: 1,
+    padding: '12px',
+    backgroundColor: '#f3f4f6',
+    borderRadius: '4px',
+    fontSize: '14px',
+    color: '#374151',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   linkStyle: {
     color: '#2563eb',

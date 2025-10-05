@@ -636,3 +636,13 @@ model SystemConfig {
 
   @@index([key])
 }
+
+// Form Template for dynamic application forms
+model FormTemplate {
+  id          String   @id @default(uuid())
+  fields      String   // JSON array of field definitions
+  fieldMapping String? // JSON object mapping field IDs to core fields (email, firstName, etc.)
+  updatedBy   String?  // User ID who last updated
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+}
