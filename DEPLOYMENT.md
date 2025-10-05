@@ -1,136 +1,134 @@
-# Deployment Guide
+# Deployment Guide - Render.com
 
-This guide will help you deploy the AyaData Freelancer Platform to production.
+This guide will help you deploy the AyaData Freelancer Platform to Render.com (100% FREE).
+
+## Why Render?
+
+✅ **Free Forever Plan** - Unlike Railway (30 days trial), Render offers a permanent free tier
+✅ **PostgreSQL Database** - Free PostgreSQL database included
+✅ **Static Site Hosting** - Free frontend hosting with global CDN
+✅ **Auto-deploy from GitHub** - Automatic deployments on every push
+
+---
 
 ## Prerequisites
 
 1. GitHub account (you already have this!)
-2. Railway account (for backend + database)
-3. Vercel account (for frontend)
-4. SendGrid account (for emails - optional for testing)
+2. Render.com account (free)
+3. SendGrid account (optional, for emails)
 
 ---
 
-## Part 1: Deploy Backend to Railway
+## Deployment Steps
 
-### Step 1: Create Railway Account
-1. Go to https://railway.app
-2. Sign up with your GitHub account
-3. Click "New Project"
+### Step 1: Create Render Account
 
-### Step 2: Deploy Backend
-1. Click "Deploy from GitHub repo"
-2. Select your repository
-3. Select the `backend` folder as the root directory
-4. Railway will auto-detect it's a Node.js app
+1. Go to https://render.com
+2. Click **"Get Started for Free"**
+3. Sign up with your GitHub account
+4. Verify your email
 
-### Step 3: Add PostgreSQL Database
-1. In your Railway project, click "+ New"
-2. Select "Database" → "PostgreSQL"
-3. Railway will automatically create a database and set `DATABASE_URL` environment variable
+### Step 2: Deploy Using render.yaml (Automatic!)
 
-### Step 4: Set Environment Variables
-In Railway project settings → Variables, add these:
+Your project already has a `render.yaml` file configured. This makes deployment super easy:
 
-```
-NODE_ENV=production
-PORT=3000
-JWT_SECRET=<generate-a-strong-random-string>
-JWT_EXPIRES_IN=15m
-JWT_REFRESH_EXPIRES_IN=7d
-FRONTEND_URL=<your-vercel-url-will-add-later>
-BACKEND_URL=<your-railway-backend-url>
-ALLOWED_ORIGINS=<your-vercel-url-will-add-later>
-SENDGRID_API_KEY=<your-sendgrid-key>
-SENDGRID_FROM_EMAIL=noreply@ayadata.com
-SENDGRID_FROM_NAME=AyaData - Freelancer Platform
-```
+1. **In Render Dashboard:**
+   - Click **"New +"** → **"Blueprint"**
+   - Connect your GitHub account if not already connected
+   - Select your repository: `Freelancer Platform`
+   - Render will automatically detect the `render.yaml` file
+   - Click **"Apply"**
 
-**Note:** Railway automatically sets `DATABASE_URL` for you!
+2. **Render will automatically create:**
+   - ✅ PostgreSQL database (`freelancer-db`)
+   - ✅ Backend API service (`freelancer-backend`)
+   - ✅ Frontend static site (`freelancer-platform-frontend`)
 
-### Step 5: Deploy
-1. Click "Deploy" in Railway
-2. Wait for deployment to complete
-3. Copy your backend URL (e.g., `https://freelancer-platform-production.up.railway.app`)
+3. **Wait for deployment:**
+   - Database: ~2 minutes
+   - Backend: ~3-5 minutes (includes migrations)
+   - Frontend: ~2-3 minutes
 
----
+### Step 3: Update URLs (Important!)
 
-## Part 2: Deploy Frontend to Vercel
+After deployment, you'll get actual URLs. You need to update them:
 
-### Step 1: Create Vercel Account
-1. Go to https://vercel.com
-2. Sign up with your GitHub account
+1. **Get your actual URLs from Render:**
+   - Backend: `https://freelancer-backend-XXXX.onrender.com`
+   - Frontend: `https://freelancer-platform-frontend-XXXX.onrender.com`
 
-### Step 2: Deploy Frontend
-1. Click "Add New" → "Project"
-2. Import your GitHub repository
-3. Select the repository
-4. **Important:** Set Root Directory to `frontend`
-5. Framework Preset: Vite (should auto-detect)
-6. Click "Deploy"
+2. **Update Backend Environment Variables:**
+   - Go to `freelancer-backend` → **Environment**
+   - Update these variables with your actual URLs:
+     ```
+     FRONTEND_URL=https://freelancer-platform-frontend-XXXX.onrender.com
+     BACKEND_URL=https://freelancer-backend-XXXX.onrender.com
+     ALLOWED_ORIGINS=https://freelancer-platform-frontend-XXXX.onrender.com
+     ```
+   - Click **"Save Changes"** (backend will auto-redeploy)
 
-### Step 3: Set Environment Variable
-In Vercel project settings → Environment Variables, add:
+3. **Update Frontend Environment Variable:**
+   - Go to `freelancer-platform-frontend` → **Environment**
+   - Update:
+     ```
+     VITE_API_URL=https://freelancer-backend-XXXX.onrender.com
+     ```
+   - Click **"Save Changes"** (frontend will auto-redeploy)
 
-```
-VITE_API_URL=<your-railway-backend-url>
-```
+### Step 4: Optional - Add SendGrid for Emails
 
-Example: `VITE_API_URL=https://freelancer-platform-production.up.railway.app`
+1. **Get SendGrid API Key:**
+   - Sign up at https://sendgrid.com (free tier: 100 emails/day)
+   - Create an API key
+   - Copy the key
 
-### Step 4: Redeploy
-1. Go to Deployments tab
-2. Click "Redeploy" to apply the environment variable
-3. Copy your frontend URL (e.g., `https://freelancer-platform.vercel.app`)
+2. **Update Backend Environment:**
+   - Go to `freelancer-backend` → **Environment**
+   - Update `SENDGRID_API_KEY` with your actual key
+   - Save changes
 
----
+### Step 5: Create Your First Admin User
 
-## Part 3: Update Backend with Frontend URL
+**Option A: Using Render Shell (Recommended)**
 
-### Go back to Railway:
-1. Update these environment variables:
-   - `FRONTEND_URL=<your-vercel-url>`
-   - `ALLOWED_ORIGINS=<your-vercel-url>`
-2. Redeploy the backend
+1. Go to `freelancer-backend` service
+2. Click **"Shell"** tab
+3. Run these commands:
+   ```bash
+   cd /opt/render/project/src/backend
+   npm run db:seed
+   ```
 
----
+**Option B: Using PostgreSQL Console**
 
-## Part 4: Create Your First Admin User
+1. Go to `freelancer-db` database
+2. Click **"Connect"** → **"PSQL Command"**
+3. Copy and run locally, or use **"Web Shell"**
+4. Run this SQL:
+   ```sql
+   INSERT INTO "User" (id, email, password, role, "isActive", "createdAt", "updatedAt")
+   VALUES (
+     gen_random_uuid(),
+     'admin@ayadata.com',
+     '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyJ8QVPo2GBu',
+     'ADMIN',
+     true,
+     NOW(),
+     NOW()
+   );
 
-### Option A: Using Railway CLI
-1. Install Railway CLI: `npm i -g @railway/cli`
-2. Login: `railway login`
-3. Link project: `railway link`
-4. Run seed: `railway run npm run db:seed`
+   INSERT INTO "AdminProfile" (id, "userId", "firstName", "lastName", "createdAt", "updatedAt")
+   VALUES (
+     gen_random_uuid(),
+     (SELECT id FROM "User" WHERE email = 'admin@ayadata.com'),
+     'System',
+     'Administrator',
+     NOW(),
+     NOW()
+   );
+   ```
 
-### Option B: Using Database Console
-1. Go to Railway → PostgreSQL → Data tab
-2. Run this SQL:
-
-```sql
-INSERT INTO "User" (id, email, password, role, "isActive", "createdAt", "updatedAt")
-VALUES (
-  gen_random_uuid(),
-  'admin@ayadata.com',
-  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyJ8QVPo2GBu', -- password: Admin123!
-  'ADMIN',
-  true,
-  NOW(),
-  NOW()
-);
-
-INSERT INTO "AdminProfile" (id, "userId", "firstName", "lastName", "createdAt", "updatedAt")
-VALUES (
-  gen_random_uuid(),
-  (SELECT id FROM "User" WHERE email = 'admin@ayadata.com'),
-  'System',
-  'Administrator',
-  NOW(),
-  NOW()
-);
-```
-
-Default credentials:
+**Default Admin Credentials:**
 - Email: `admin@ayadata.com`
 - Password: `Admin123!`
 
@@ -138,53 +136,130 @@ Default credentials:
 
 ## Testing Your Deployment
 
-1. Visit your Vercel URL
-2. Try logging in with admin credentials
-3. Create a test application as a freelancer
-4. Approve/reject applications
+1. Visit your frontend URL
+2. Click **"Login"**
+3. Use admin credentials above
+4. Create a test application as a freelancer
+5. Approve/reject applications
+
+---
+
+## Important URLs
+
+After deployment, save these URLs:
+
+| Service | URL | Purpose |
+|---------|-----|---------|
+| Frontend | https://freelancer-platform-frontend-XXXX.onrender.com | User interface |
+| Backend API | https://freelancer-backend-XXXX.onrender.com | API server |
+| Database | (Internal only) | PostgreSQL |
 
 ---
 
 ## Troubleshooting
 
 ### Backend won't start
-- Check Railway logs for errors
+- Check **Logs** tab in Render dashboard
 - Verify all environment variables are set
-- Ensure DATABASE_URL is set by Railway
+- Ensure database is running
+- Check if migrations ran successfully
 
-### Frontend can't connect to backend
-- Check VITE_API_URL is correct
-- Verify CORS settings in backend
-- Check Railway backend logs
+### Frontend shows blank page
+- Check browser console for errors
+- Verify `VITE_API_URL` is set correctly
+- Check if backend is running
 
-### Database migrations failed
-- Railway runs migrations automatically on deploy
-- Check logs for migration errors
-- You can manually run: `railway run npm run db:migrate:deploy`
+### Database connection errors
+- Render automatically sets `DATABASE_URL`
+- Check if database is in "Available" status
+- Try redeploying backend
+
+### CORS errors
+- Verify `ALLOWED_ORIGINS` matches your frontend URL exactly
+- No trailing slashes in URLs
+- Must use HTTPS (not HTTP)
 
 ---
 
-## Important Notes
+## Free Tier Limitations
 
-1. **Database:** Railway PostgreSQL is production-ready
-2. **File Storage:** If you add file uploads later, use AWS S3 or Cloudinary
-3. **Monitoring:** Enable Railway metrics and Vercel analytics
-4. **Custom Domain:** You can add custom domains in both Railway and Vercel settings
-5. **Costs:**
-   - Vercel: Free for hobby projects
-   - Railway: Free $5/month credit (should be enough for small projects)
+**Render Free Tier includes:**
+- ✅ Unlimited static sites (frontend)
+- ✅ Web services that spin down after 15 min of inactivity
+- ✅ 90-day PostgreSQL database retention
+- ✅ 750 hours/month free (enough for 1 service 24/7)
+
+**Important Notes:**
+1. **Backend will sleep after 15 min of inactivity** - First request will be slow (~30 seconds)
+2. **Database is free but deleted after 90 days of inactivity** - Keep backups!
+3. **No custom domains on free tier** - Use Render subdomains
+
+---
+
+## Keeping Your Backend Awake (Optional)
+
+Use a free uptime monitor to ping your backend every 10 minutes:
+
+1. **UptimeRobot** (free): https://uptimerobot.com
+2. **Cron-job.org** (free): https://cron-job.org
+3. Set URL: `https://freelancer-backend-XXXX.onrender.com/health`
+4. Interval: Every 10 minutes
+
+---
+
+## Updating Your App
+
+**Automatic Deployments:**
+- Every `git push` to `master` branch triggers auto-deploy
+- Backend and frontend deploy independently
+- Database migrations run automatically
+
+**Manual Deploy:**
+- Go to service → **"Manual Deploy"** → **"Clear build cache & deploy"**
 
 ---
 
 ## Next Steps
 
-1. Set up custom domain (optional)
-2. Configure SendGrid for production emails
-3. Enable monitoring and logging
-4. Set up CI/CD for automatic deployments
-5. Add error tracking (Sentry)
+1. ✅ Change admin password after first login
+2. ✅ Configure SendGrid for production emails
+3. ✅ Set up uptime monitoring (optional)
+4. ✅ Add custom domain (paid feature)
+5. ✅ Enable Render metrics and logs
 
-Need help? Check:
-- Railway Docs: https://docs.railway.app
-- Vercel Docs: https://vercel.com/docs
+---
+
+## Cost Breakdown
+
+| Service | Cost |
+|---------|------|
+| Frontend (Static) | **$0/month** (Free forever) |
+| Backend (Web Service) | **$0/month** (Free tier) |
+| PostgreSQL Database | **$0/month** (Free tier, 90-day retention) |
+| **TOTAL** | **$0/month** |
+
+---
+
+## Support & Documentation
+
+- Render Docs: https://render.com/docs
+- Render Community: https://community.render.com
 - Prisma Docs: https://www.prisma.io/docs
+- Project GitHub: [Your repo URL]
+
+---
+
+## Upgrading to Paid (Optional)
+
+If you need more power:
+
+| Feature | Free | Starter ($7/mo) |
+|---------|------|-----------------|
+| Always-on backend | ❌ (sleeps) | ✅ 24/7 |
+| Database retention | 90 days | Forever |
+| Custom domains | ❌ | ✅ |
+| Build minutes | 750/mo | Unlimited |
+
+---
+
+**🎉 Congratulations! Your app is now live on Render.com for FREE!**

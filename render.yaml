@@ -7,7 +7,7 @@ services:
     plan: free
     branch: master
     rootDir: backend
-    buildCommand: npm install && npx prisma generate && npx prisma db push --accept-data-loss
+    buildCommand: npm install && npx prisma generate && npx prisma migrate deploy
     startCommand: npm start
     envVars:
       - key: NODE_ENV
@@ -24,12 +24,32 @@ services:
         fromDatabase:
           name: freelancer-db
           property: connectionString
+      - key: FRONTEND_URL
+        value: https://freelancer-platform-frontend.onrender.com
+      - key: BACKEND_URL
+        value: https://freelancer-backend.onrender.com
+      - key: ALLOWED_ORIGINS
+        value: https://freelancer-platform-frontend.onrender.com
       - key: SENDGRID_API_KEY
         sync: false
       - key: SENDGRID_FROM_EMAIL
         value: noreply@ayadata.com
       - key: SENDGRID_FROM_NAME
         value: AyaData - Freelancer Platform
+
+  # Frontend Static Site
+  - type: web
+    name: freelancer-platform-frontend
+    runtime: static
+    region: frankfurt
+    plan: free
+    branch: master
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://freelancer-backend.onrender.com
 
 databases:
   # PostgreSQL Database
