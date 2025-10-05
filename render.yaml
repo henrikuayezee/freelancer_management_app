@@ -41,7 +41,6 @@ services:
   - type: web
     name: freelancer-platform-frontend
     runtime: static
-    region: frankfurt
     plan: free
     branch: master
     rootDir: frontend
