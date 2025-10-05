@@ -16,9 +16,11 @@ export default function ProjectDetailPage() {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editFormData, setEditFormData] = useState({});
+  const [applications, setApplications] = useState([]);
 
   useEffect(() => {
     loadProject();
+    loadApplications();
   }, [id]);
 
   const loadProject = async () => {
@@ -60,6 +62,42 @@ export default function ProjectDetailPage() {
       loadProject();
     } catch (error) {
       alert('Failed to update project: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  const loadApplications = async () => {
+    try {
+      const response = await projectsAPI.getApplications(id);
+      setApplications(response.data.data.applications || []);
+    } catch (error) {
+      console.error('Failed to load applications', error);
+    }
+  };
+
+  const handleApproveApplication = async (freelancerId) => {
+    if (!confirm('Are you sure you want to approve this application?')) return;
+
+    try {
+      await projectsAPI.approveApplication(id, freelancerId, {});
+      alert('Application approved successfully!');
+      loadProject();
+      loadApplications();
+    } catch (error) {
+      alert('Failed to approve application: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  const handleRejectApplication = async (freelancerId) => {
+    const reason = prompt('Please provide a reason for rejection (optional):');
+    if (reason === null) return; // User cancelled
+
+    try {
+      await projectsAPI.rejectApplication(id, freelancerId, { reason });
+      alert('Application rejected');
+      loadProject();
+      loadApplications();
+    } catch (error) {
+      alert('Failed to reject application: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -218,16 +256,77 @@ export default function ProjectDetailPage() {
         )}
       </div>
 
+      {/* Applications - Pending Approval */}
+      {applications.length > 0 && (
+        <div style={styles.section}>
+          <h2 style={styles.sectionTitle}>Pending Applications ({applications.length})</h2>
+          <div style={styles.table}>
+            <table style={styles.tableElement}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>ID</th>
+                  <th style={styles.th}>Name</th>
+                  <th style={styles.th}>Email</th>
+                  <th style={styles.th}>Tier</th>
+                  <th style={styles.th}>Grade</th>
+                  <th style={styles.th}>Applied Date</th>
+                  <th style={styles.th}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {applications.map((application) => (
+                  <tr key={application.id} style={styles.tr}>
+                    <td style={styles.td}>{application.freelancer.freelancerId}</td>
+                    <td style={styles.td}>
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          navigate(`/admin/freelancers/${application.freelancer.id}`);
+                        }}
+                        style={styles.link}
+                      >
+                        {application.freelancer.firstName} {application.freelancer.middleName ? application.freelancer.middleName + ' ' : ''}{application.freelancer.lastName}
+                      </a>
+                    </td>
+                    <td style={styles.td}>{application.freelancer.email}</td>
+                    <td style={styles.td}>{application.freelancer.currentTier}</td>
+                    <td style={styles.td}>{application.freelancer.currentGrade}</td>
+                    <td style={styles.td}>{new Date(application.assignedAt).toLocaleDateString()}</td>
+                    <td style={styles.td}>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          onClick={() => handleApproveApplication(application.freelancer.id)}
+                          style={styles.approveButton}
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => handleRejectApplication(application.freelancer.id)}
+                          style={styles.rejectButton}
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Assignments */}
       <div style={styles.section}>
         <div style={styles.sectionHeader}>
-          <h2 style={styles.sectionTitle}>Assigned Freelancers ({project.assignments.length})</h2>
+          <h2 style={styles.sectionTitle}>Assigned Freelancers ({project.assignments.filter(a => a.status === 'ACTIVE').length})</h2>
           <button onClick={() => setShowAssignModal(true)} style={styles.assignButton}>
             + Assign Freelancer
           </button>
         </div>
 
-        {project.assignments.length === 0 ? (
+        {project.assignments.filter(a => a.status === 'ACTIVE').length === 0 ? (
           <div style={styles.empty}>No freelancers assigned yet</div>
         ) : (
           <div style={styles.table}>
@@ -245,7 +344,7 @@ export default function ProjectDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {project.assignments.map((assignment) => (
+                {project.assignments.filter(a => a.status === 'ACTIVE').map((assignment) => (
                   <tr key={assignment.id} style={styles.tr}>
                     <td style={styles.td}>{assignment.freelancer.freelancerId}</td>
                     <td style={styles.td}>
@@ -553,6 +652,26 @@ const styles = {
     borderRadius: '4px',
     cursor: 'pointer',
     fontSize: '12px',
+  },
+  approveButton: {
+    padding: '6px 12px',
+    backgroundColor: '#10b981',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: '500',
+  },
+  rejectButton: {
+    padding: '6px 12px',
+    backgroundColor: '#ef4444',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: '500',
   },
   loading: {
     textAlign: 'center',

@@ -87,13 +87,22 @@ export default function AdminDashboardOverview() {
           {/* Total Freelancers */}
           <div style={statCardStyle}>
             <h3 style={statTitleStyle}>Total Freelancers</h3>
+            <p style={statNoteStyle}>Registered on platform</p>
             <p style={statValueStyle}>{stats.overview.totalFreelancers}</p>
           </div>
 
           {/* Active Freelancers */}
           <div style={statCardStyle}>
             <h3 style={statTitleStyle}>Active Freelancers</h3>
+            <p style={statNoteStyle}>Currently available for work</p>
             <p style={statValueStyle}>{stats.overview.activeFreelancers}</p>
+          </div>
+
+          {/* Engaged Freelancers */}
+          <div style={statCardStyle}>
+            <h3 style={statTitleStyle}>Engaged Freelancers</h3>
+            <p style={statNoteStyle}>Working on active projects</p>
+            <p style={statValueStyle}>{stats.overview.engagedFreelancers || 0}</p>
           </div>
 
           {/* Workforce Levels */}

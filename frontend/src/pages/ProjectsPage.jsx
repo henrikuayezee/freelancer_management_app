@@ -16,6 +16,7 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [expandedRows, setExpandedRows] = useState(new Set());
 
   // Filters
   const [filters, setFilters] = useState({
@@ -49,6 +50,16 @@ export default function ProjectsPage() {
 
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const toggleRow = (projectId) => {
+    const newExpanded = new Set(expandedRows);
+    if (newExpanded.has(projectId)) {
+      newExpanded.delete(projectId);
+    } else {
+      newExpanded.add(projectId);
+    }
+    setExpandedRows(newExpanded);
   };
 
   return (
@@ -92,17 +103,36 @@ export default function ProjectsPage() {
         </div>
       </div>
 
-      {/* Projects Grid */}
+      {/* Projects Table */}
       {loading ? (
         <div style={styles.loading}>Loading...</div>
       ) : projects.length === 0 ? (
         <div style={styles.empty}>No projects found</div>
       ) : (
-        <div style={styles.grid}>
-          {projects.map((project) => (
-            <ProjectCard key={project.id} project={project} onClick={() => navigate(`/admin/projects/${project.id}`)} />
-          ))}
-        </div>
+        <table style={styles.table}>
+          <thead>
+            <tr style={styles.tableHeader}>
+              <th style={styles.th}>Project ID</th>
+              <th style={styles.th}>Name</th>
+              <th style={styles.th}>Status</th>
+              <th style={styles.th}>Applications</th>
+              <th style={styles.th}>Assigned</th>
+              <th style={styles.th}>Required</th>
+              <th style={styles.th}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {projects.map((project) => (
+              <ProjectRow
+                key={project.id}
+                project={project}
+                isExpanded={expandedRows.has(project.id)}
+                onToggle={() => toggleRow(project.id)}
+                onView={() => navigate(`/admin/projects/${project.id}`)}
+              />
+            ))}
+          </tbody>
+        </table>
       )}
 
       {/* Create Modal */}
@@ -119,41 +149,77 @@ export default function ProjectsPage() {
   );
 }
 
-function ProjectCard({ project, onClick }) {
+function ProjectRow({ project, isExpanded, onToggle, onView }) {
   return (
-    <div style={styles.card} onClick={onClick}>
-      <div style={styles.cardHeader}>
-        <div>
-          <h3 style={styles.cardTitle}>{project.name}</h3>
-          <p style={styles.cardId}>{project.projectId}</p>
-        </div>
-        <span style={getStatusBadgeStyle(project.status)}>{project.status}</span>
-      </div>
-
-      <div style={styles.cardBody}>
-        {project.vertical && (
-          <div style={styles.cardDetail}>
-            <strong>Vertical:</strong> {project.vertical}
-          </div>
-        )}
-        {project.annotationRequired && (
-          <div style={styles.cardDetail}>
-            <strong>Annotation:</strong> {project.annotationRequired}
-          </div>
-        )}
-        <div style={styles.cardDetail}>
-          <strong>Start Date:</strong> {new Date(project.startDate).toLocaleDateString()}
-        </div>
-        <div style={styles.cardDetail}>
-          <strong>Freelancers:</strong> {project._count.assignments} / {project.freelancersRequired}
-        </div>
-      </div>
-
-      <div style={styles.cardFooter}>
-        <span style={styles.cardStat}>💼 {project._count.assignments} assigned</span>
-        <span style={styles.cardStat}>📝 {project._count.applications} applications</span>
-      </div>
-    </div>
+    <>
+      <tr style={styles.tableRow} onClick={onToggle}>
+        <td style={styles.td}>{project.projectId}</td>
+        <td style={styles.td}><strong>{project.name}</strong></td>
+        <td style={styles.td}>
+          <span style={getStatusBadgeStyle(project.status)}>{project.status}</span>
+        </td>
+        <td style={styles.td}>{project._count?.applications || 0}</td>
+        <td style={styles.td}>{project._count?.assignments || 0}</td>
+        <td style={styles.td}>{project.freelancersRequired}</td>
+        <td style={styles.td}>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onView();
+            }}
+            style={styles.viewButton}
+          >
+            View Details
+          </button>
+        </td>
+      </tr>
+      {isExpanded && (
+        <tr style={styles.expandedRow}>
+          <td colSpan="7" style={styles.expandedContent}>
+            <div style={styles.detailsGrid}>
+              <div style={styles.detailSection}>
+                <h4 style={styles.detailTitle}>Project Information</h4>
+                {project.vertical && (
+                  <div style={styles.detailItem}>
+                    <strong>Vertical:</strong> {project.vertical}
+                  </div>
+                )}
+                {project.annotationRequired && (
+                  <div style={styles.detailItem}>
+                    <strong>Annotation Required:</strong> {project.annotationRequired}
+                  </div>
+                )}
+                {project.description && (
+                  <div style={styles.detailItem}>
+                    <strong>Description:</strong> {project.description}
+                  </div>
+                )}
+              </div>
+              <div style={styles.detailSection}>
+                <h4 style={styles.detailTitle}>Timeline</h4>
+                <div style={styles.detailItem}>
+                  <strong>Start Date:</strong> {project.startDate ? new Date(project.startDate).toLocaleDateString() : 'N/A'}
+                </div>
+                <div style={styles.detailItem}>
+                  <strong>End Date:</strong> {project.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A'}
+                </div>
+              </div>
+              <div style={styles.detailSection}>
+                <h4 style={styles.detailTitle}>Payment</h4>
+                <div style={styles.detailItem}>
+                  <strong>Payment Model:</strong> {project.paymentModel}
+                </div>
+                {project.hourlyRateAnnotation && (
+                  <div style={styles.detailItem}>
+                    <strong>Hourly Rate (Annotation):</strong> ${project.hourlyRateAnnotation}
+                  </div>
+                )}
+              </div>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
 
@@ -523,53 +589,74 @@ const styles = {
     fontSize: '16px',
     color: '#9ca3af',
   },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
-    gap: '24px',
-  },
-  card: {
+  table: {
+    width: '100%',
     backgroundColor: 'white',
     borderRadius: '8px',
-    padding: '24px',
+    overflow: 'hidden',
     boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+    borderCollapse: 'collapse',
+  },
+  tableHeader: {
+    backgroundColor: '#f9fafb',
+  },
+  th: {
+    padding: '16px',
+    textAlign: 'left',
+    fontSize: '12px',
+    fontWeight: '600',
+    color: '#6b7280',
+    textTransform: 'uppercase',
+    borderBottom: '2px solid #e5e7eb',
+  },
+  tableRow: {
     cursor: 'pointer',
-    transition: 'box-shadow 0.2s',
+    transition: 'background-color 0.2s',
+    borderBottom: '1px solid #e5e7eb',
   },
-  cardHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: '16px',
+  td: {
+    padding: '16px',
+    fontSize: '14px',
+    color: '#374151',
   },
-  cardTitle: {
-    fontSize: '18px',
+  viewButton: {
+    padding: '6px 12px',
+    backgroundColor: '#2563eb',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: '500',
+  },
+  expandedRow: {
+    backgroundColor: '#f9fafb',
+  },
+  expandedContent: {
+    padding: '24px',
+  },
+  detailsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+    gap: '24px',
+  },
+  detailSection: {
+    backgroundColor: 'white',
+    padding: '16px',
+    borderRadius: '6px',
+  },
+  detailTitle: {
+    fontSize: '14px',
     fontWeight: '600',
     color: '#111827',
-    margin: '0 0 4px 0',
+    marginBottom: '12px',
+    paddingBottom: '8px',
+    borderBottom: '1px solid #e5e7eb',
   },
-  cardId: {
-    fontSize: '12px',
-    color: '#6b7280',
-    margin: 0,
-  },
-  cardBody: {
-    marginBottom: '16px',
-  },
-  cardDetail: {
+  detailItem: {
     fontSize: '14px',
     color: '#374151',
     marginBottom: '8px',
-  },
-  cardFooter: {
-    display: 'flex',
-    gap: '16px',
-    paddingTop: '16px',
-    borderTop: '1px solid #e5e7eb',
-  },
-  cardStat: {
-    fontSize: '13px',
-    color: '#6b7280',
   },
   modalOverlay: {
     position: 'fixed',

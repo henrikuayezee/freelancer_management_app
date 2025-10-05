@@ -17,11 +17,35 @@ export const getDashboardStats = async (req, res) => {
     // Total freelancers (all that have signed up)
     const totalFreelancers = await prisma.freelancer.count();
 
-    // Active freelancers (onboarding complete + active status)
+    // Get freelancers with active project assignments (Engaged)
+    const freelancersWithActiveProjects = await prisma.freelancer.findMany({
+      where: {
+        status: 'ACTIVE',
+        projectAssignments: {
+          some: {
+            status: 'ACTIVE',
+            project: {
+              status: 'ACTIVE'
+            }
+          }
+        }
+      },
+      select: {
+        id: true
+      }
+    });
+
+    const engagedFreelancerIds = new Set(freelancersWithActiveProjects.map(f => f.id));
+    const engagedFreelancers = engagedFreelancerIds.size;
+
+    // Active freelancers = available but NOT engaged in projects
     const activeFreelancers = await prisma.freelancer.count({
       where: {
         status: 'ACTIVE',
-        onboardingStatus: 'COMPLETED'
+        isAvailableNow: true,
+        id: {
+          notIn: Array.from(engagedFreelancerIds)
+        }
       }
     });
 
@@ -121,6 +145,7 @@ export const getDashboardStats = async (req, res) => {
       overview: {
         totalFreelancers,
         activeFreelancers,
+        engagedFreelancers,
         totalProjects,
         ongoingProjects
       },

@@ -65,17 +65,21 @@ export async function getAllFreelancers(req, res, next) {
         id: true,
         freelancerId: true,
         firstName: true,
+        middleName: true,
         lastName: true,
         email: true,
         phone: true,
         city: true,
         country: true,
+        timezone: true,
         status: true,
         onboardingStatus: true,
         currentTier: true,
         currentGrade: true,
         availabilityType: true,
         hoursPerWeek: true,
+        isAvailableNow: true,
+        availabilityTimezone: true,
         annotationTypes: true,
         annotationMethods: true,
         toolsProficiency: true,
@@ -165,6 +169,37 @@ export async function getFreelancerById(req, res, next) {
             submittedAt: true,
           },
         },
+        projectAssignments: {
+          include: {
+            project: {
+              select: {
+                id: true,
+                projectId: true,
+                name: true,
+                status: true,
+                startDate: true,
+                endDate: true,
+              },
+            },
+          },
+          orderBy: {
+            assignedAt: 'desc',
+          },
+        },
+        performanceRecords: {
+          include: {
+            project: {
+              select: {
+                id: true,
+                projectId: true,
+                name: true,
+              },
+            },
+          },
+          orderBy: {
+            recordDate: 'desc',
+          },
+        },
       },
     });
 
@@ -172,7 +207,33 @@ export async function getFreelancerById(req, res, next) {
       return errorResponse(res, 'Freelancer not found', 404);
     }
 
-    return successResponse(res, freelancer);
+    // Calculate stats
+    const totalProjects = freelancer.projectAssignments.length;
+    const activeProjects = freelancer.projectAssignments.filter(
+      (pa) => pa.status === 'ACTIVE' && pa.project.status === 'ACTIVE'
+    ).length;
+    const pendingApplications = freelancer.projectAssignments.filter(
+      (pa) => pa.status === 'PENDING'
+    ).length;
+
+    const avgPerformance =
+      freelancer.performanceRecords.length > 0
+        ? (
+            freelancer.performanceRecords.reduce((sum, r) => sum + (r.overallScore || 0), 0) /
+            freelancer.performanceRecords.length
+          ).toFixed(2)
+        : 0;
+
+    return successResponse(res, {
+      ...freelancer,
+      stats: {
+        totalProjects,
+        activeProjects,
+        pendingApplications,
+        avgPerformance,
+        totalPerformanceRecords: freelancer.performanceRecords.length,
+      },
+    });
   } catch (error) {
     next(error);
   }

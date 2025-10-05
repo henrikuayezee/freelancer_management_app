@@ -96,6 +96,9 @@ export const projectsAPI = {
   delete: (id) => api.delete(`/api/projects/${id}`),
   assignFreelancer: (projectId, data) => api.post(`/api/projects/${projectId}/assign`, data),
   removeFreelancer: (projectId, freelancerId) => api.delete(`/api/projects/${projectId}/assign/${freelancerId}`),
+  getApplications: (projectId) => api.get(`/api/projects/${projectId}/applications`),
+  approveApplication: (projectId, freelancerId, data) => api.post(`/api/projects/${projectId}/applications/${freelancerId}/approve`, data),
+  rejectApplication: (projectId, freelancerId, data) => api.post(`/api/projects/${projectId}/applications/${freelancerId}/reject`, data),
 };
 
 // ====================

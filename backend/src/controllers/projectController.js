@@ -50,19 +50,35 @@ export async function getAllProjects(req, res, next) {
       skip: (parseInt(page) - 1) * parseInt(limit),
       take: parseInt(limit),
       include: {
-        _count: {
+        assignments: {
           select: {
-            assignments: true,
-            applications: true,
+            id: true,
+            status: true,
           },
         },
       },
     });
 
+    // Separate applications (PENDING) from assignments (ACTIVE)
+    const projectsWithCounts = projects.map(project => {
+      const applications = project.assignments.filter(a => a.status === 'PENDING');
+      const activeAssignments = project.assignments.filter(a => a.status === 'ACTIVE');
+
+      const { assignments, ...projectData } = project;
+
+      return {
+        ...projectData,
+        _count: {
+          applications: applications.length,
+          assignments: activeAssignments.length,
+        },
+      };
+    });
+
     const totalCount = await prisma.project.count({ where });
 
     return successResponse(res, {
-      projects,
+      projects: projectsWithCounts,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -93,6 +109,7 @@ export async function getProjectById(req, res, next) {
                 id: true,
                 freelancerId: true,
                 firstName: true,
+                middleName: true,
                 lastName: true,
                 email: true,
                 currentTier: true,
@@ -102,25 +119,9 @@ export async function getProjectById(req, res, next) {
             },
           },
         },
-        applications: {
-          include: {
-            freelancer: {
-              select: {
-                id: true,
-                freelancerId: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                currentTier: true,
-                currentGrade: true,
-              },
-            },
-          },
-        },
         _count: {
           select: {
             assignments: true,
-            applications: true,
             performanceRecords: true,
           },
         },
@@ -425,6 +426,190 @@ export async function removeFreelancerFromProject(req, res, next) {
     });
 
     return successResponse(res, null, 'Freelancer removed from project');
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Get Project Applications (PENDING assignments)
+ * GET /api/projects/:id/applications
+ */
+export async function getProjectApplications(req, res, next) {
+  try {
+    const { id } = req.params;
+
+    // Check if project exists
+    const project = await prisma.project.findUnique({ where: { id } });
+    if (!project) {
+      return errorResponse(res, 'Project not found', 404);
+    }
+
+    // Get all PENDING assignments (applications)
+    const applications = await prisma.projectAssignment.findMany({
+      where: {
+        projectId: id,
+        status: 'PENDING',
+      },
+      include: {
+        freelancer: {
+          select: {
+            id: true,
+            freelancerId: true,
+            firstName: true,
+            middleName: true,
+            lastName: true,
+            email: true,
+            currentTier: true,
+            currentGrade: true,
+          },
+        },
+      },
+      orderBy: {
+        assignedAt: 'desc',
+      },
+    });
+
+    return successResponse(res, { applications });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Approve Project Application
+ * POST /api/projects/:id/applications/:freelancerId/approve
+ */
+export async function approveProjectApplication(req, res, next) {
+  try {
+    const { id, freelancerId } = req.params;
+
+    // Check if project exists
+    const project = await prisma.project.findUnique({ where: { id } });
+    if (!project) {
+      return errorResponse(res, 'Project not found', 404);
+    }
+
+    // Check if freelancer exists
+    const freelancer = await prisma.freelancer.findUnique({ where: { id: freelancerId } });
+    if (!freelancer) {
+      return errorResponse(res, 'Freelancer not found', 404);
+    }
+
+    // Find the PENDING application
+    const application = await prisma.projectAssignment.findUnique({
+      where: {
+        projectId_freelancerId: {
+          projectId: id,
+          freelancerId,
+        },
+      },
+    });
+
+    if (!application) {
+      return errorResponse(res, 'Application not found', 404);
+    }
+
+    if (application.status !== 'PENDING') {
+      return errorResponse(res, 'This application has already been reviewed', 400);
+    }
+
+    // Update application status to ACTIVE
+    const updated = await prisma.projectAssignment.update({
+      where: {
+        projectId_freelancerId: {
+          projectId: id,
+          freelancerId,
+        },
+      },
+      data: {
+        status: 'ACTIVE',
+        startDate: new Date(), // Set start date to now
+      },
+    });
+
+    // Create notification for freelancer
+    await createNotification({
+      userId: freelancer.userId,
+      type: 'PROJECT_ASSIGNED',
+      title: 'Application Approved!',
+      message: `Your application for project "${project.name}" has been approved. You can now start working on it.`,
+      link: `/freelancer/my-projects`,
+      relatedId: id,
+      relatedType: 'PROJECT',
+    });
+
+    return successResponse(res, updated, 'Application approved successfully');
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Reject Project Application
+ * POST /api/projects/:id/applications/:freelancerId/reject
+ */
+export async function rejectProjectApplication(req, res, next) {
+  try {
+    const { id, freelancerId } = req.params;
+    const { reason } = req.body;
+
+    // Check if project exists
+    const project = await prisma.project.findUnique({ where: { id } });
+    if (!project) {
+      return errorResponse(res, 'Project not found', 404);
+    }
+
+    // Check if freelancer exists
+    const freelancer = await prisma.freelancer.findUnique({ where: { id: freelancerId } });
+    if (!freelancer) {
+      return errorResponse(res, 'Freelancer not found', 404);
+    }
+
+    // Find the PENDING application
+    const application = await prisma.projectAssignment.findUnique({
+      where: {
+        projectId_freelancerId: {
+          projectId: id,
+          freelancerId,
+        },
+      },
+    });
+
+    if (!application) {
+      return errorResponse(res, 'Application not found', 404);
+    }
+
+    if (application.status !== 'PENDING') {
+      return errorResponse(res, 'This application has already been reviewed', 400);
+    }
+
+    // Update application status to REJECTED
+    const updated = await prisma.projectAssignment.update({
+      where: {
+        projectId_freelancerId: {
+          projectId: id,
+          freelancerId,
+        },
+      },
+      data: {
+        status: 'REJECTED',
+        completionNotes: reason || 'Your application was not approved',
+      },
+    });
+
+    // Create notification for freelancer
+    await createNotification({
+      userId: freelancer.userId,
+      type: 'APPLICATION_REJECTED',
+      title: 'Application Not Approved',
+      message: `Your application for project "${project.name}" was not approved. ${reason || ''}`,
+      link: `/freelancer/dashboard`,
+      relatedId: id,
+      relatedType: 'PROJECT',
+    });
+
+    return successResponse(res, updated, 'Application rejected');
   } catch (error) {
     next(error);
   }

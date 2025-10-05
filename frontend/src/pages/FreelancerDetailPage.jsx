@@ -336,16 +336,120 @@ export default function FreelancerDetailPage() {
               </div>
             </div>
 
+            {/* Stats Overview */}
+            {freelancer.stats && (
+              <div style={styles.section}>
+                <h3 style={styles.sectionTitle}>Statistics</h3>
+                <div style={styles.grid}>
+                  <InfoItem label="Total Projects" value={freelancer.stats.totalProjects} />
+                  <InfoItem label="Active Projects" value={freelancer.stats.activeProjects} />
+                  <InfoItem label="Pending Applications" value={freelancer.stats.pendingApplications} />
+                  <InfoItem label="Avg Performance" value={freelancer.stats.avgPerformance} />
+                  <InfoItem label="Performance Records" value={freelancer.stats.totalPerformanceRecords} />
+                </div>
+              </div>
+            )}
+
             {/* Availability */}
             <div style={styles.section}>
               <h3 style={styles.sectionTitle}>Availability</h3>
               <div style={styles.grid}>
+                <InfoItem label="Available Now" value={freelancer.isAvailableNow ? 'Yes' : 'No'} />
                 {freelancer.availabilityType && <InfoItem label="Type" value={freelancer.availabilityType} />}
                 {freelancer.hoursPerWeek && <InfoItem label="Hours/Week" value={freelancer.hoursPerWeek} />}
-                {freelancer.preferredStartTime && <InfoItem label="Start Time" value={freelancer.preferredStartTime} />}
-                {freelancer.preferredEndTime && <InfoItem label="End Time" value={freelancer.preferredEndTime} />}
+                {freelancer.availabilityTimezone && <InfoItem label="Timezone" value={freelancer.availabilityTimezone} />}
+                {freelancer.availabilityStartDate && <InfoItem label="Start Date" value={new Date(freelancer.availabilityStartDate).toLocaleDateString()} />}
+                {freelancer.availabilityEndDate && <InfoItem label="End Date" value={new Date(freelancer.availabilityEndDate).toLocaleDateString()} />}
+                {freelancer.availabilityStartHour && <InfoItem label="Start Hour" value={freelancer.availabilityStartHour} />}
+                {freelancer.availabilityEndHour && <InfoItem label="End Hour" value={freelancer.availabilityEndHour} />}
               </div>
             </div>
+
+            {/* Projects */}
+            {freelancer.projectAssignments && freelancer.projectAssignments.length > 0 && (
+              <div style={styles.section}>
+                <h3 style={styles.sectionTitle}>Projects ({freelancer.projectAssignments.length})</h3>
+                <table style={styles.projectsTable}>
+                  <thead>
+                    <tr style={styles.tableHeader}>
+                      <th style={styles.th}>Project ID</th>
+                      <th style={styles.th}>Name</th>
+                      <th style={styles.th}>Status</th>
+                      <th style={styles.th}>Assignment Status</th>
+                      <th style={styles.th}>Start Date</th>
+                      <th style={styles.th}>End Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {freelancer.projectAssignments.map((assignment) => (
+                      <tr key={assignment.id} style={styles.tableRow}>
+                        <td style={styles.td}>{assignment.project.projectId}</td>
+                        <td style={styles.td}><strong>{assignment.project.name}</strong></td>
+                        <td style={styles.td}>
+                          <span style={getProjectStatusBadge(assignment.project.status)}>
+                            {assignment.project.status}
+                          </span>
+                        </td>
+                        <td style={styles.td}>
+                          <span style={getAssignmentStatusBadge(assignment.status)}>
+                            {assignment.status}
+                          </span>
+                        </td>
+                        <td style={styles.td}>
+                          {assignment.project.startDate ? new Date(assignment.project.startDate).toLocaleDateString() : 'N/A'}
+                        </td>
+                        <td style={styles.td}>
+                          {assignment.project.endDate ? new Date(assignment.project.endDate).toLocaleDateString() : 'N/A'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Performance Records */}
+            {freelancer.performanceRecords && freelancer.performanceRecords.length > 0 && (
+              <div style={styles.section}>
+                <h3 style={styles.sectionTitle}>Performance Records ({freelancer.performanceRecords.length})</h3>
+                <table style={styles.projectsTable}>
+                  <thead>
+                    <tr style={styles.tableHeader}>
+                      <th style={styles.th}>Date</th>
+                      <th style={styles.th}>Project</th>
+                      <th style={styles.th}>COM Score</th>
+                      <th style={styles.th}>QUAL Score</th>
+                      <th style={styles.th}>Overall Score</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {freelancer.performanceRecords.map((record) => (
+                      <tr key={record.id} style={styles.tableRow}>
+                        <td style={styles.td}>{new Date(record.recordDate).toLocaleDateString()}</td>
+                        <td style={styles.td}>
+                          {record.project ? `${record.project.projectId} - ${record.project.name}` : 'N/A'}
+                        </td>
+                        <td style={styles.td}>
+                          <span style={getPerformanceBadge(record.comTotal)}>
+                            {record.comTotal?.toFixed(2) || 'N/A'}
+                          </span>
+                        </td>
+                        <td style={styles.td}>
+                          <span style={getPerformanceBadge(record.qualTotal)}>
+                            {record.qualTotal?.toFixed(2) || 'N/A'}
+                          </span>
+                        </td>
+                        <td style={styles.td}>
+                          <span style={getPerformanceBadge(record.overallScore)}>
+                            {record.overallScore?.toFixed(2) || 'N/A'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
             {/* Skills & Expertise */}
             {freelancer.annotationTypes && (
@@ -597,6 +701,71 @@ function getGradeBadge(grade) {
   };
 }
 
+function getProjectStatusBadge(status) {
+  const base = {
+    padding: '4px 12px',
+    borderRadius: '12px',
+    fontSize: '12px',
+    fontWeight: '600',
+    color: 'white',
+  };
+  switch (status) {
+    case 'ACTIVE':
+      return { ...base, backgroundColor: '#10b981' };
+    case 'COMPLETED':
+      return { ...base, backgroundColor: '#6b7280' };
+    case 'ON_HOLD':
+      return { ...base, backgroundColor: '#f59e0b' };
+    default:
+      return base;
+  }
+}
+
+function getAssignmentStatusBadge(status) {
+  const base = {
+    padding: '4px 12px',
+    borderRadius: '12px',
+    fontSize: '12px',
+    fontWeight: '600',
+    color: 'white',
+  };
+  switch (status) {
+    case 'ACTIVE':
+      return { ...base, backgroundColor: '#10b981' };
+    case 'PENDING':
+      return { ...base, backgroundColor: '#f59e0b' };
+    case 'REJECTED':
+      return { ...base, backgroundColor: '#ef4444' };
+    case 'COMPLETED':
+      return { ...base, backgroundColor: '#6b7280' };
+    default:
+      return base;
+  }
+}
+
+function getPerformanceBadge(score) {
+  const base = {
+    padding: '4px 8px',
+    borderRadius: '4px',
+    fontSize: '13px',
+    fontWeight: '600',
+  };
+
+  if (score === null || score === undefined) {
+    return { ...base, backgroundColor: '#f3f4f6', color: '#6b7280' };
+  }
+
+  if (score >= 4.5) {
+    return { ...base, backgroundColor: '#d1fae5', color: '#065f46' };
+  } else if (score >= 3.5) {
+    return { ...base, backgroundColor: '#dbeafe', color: '#1e40af' };
+  } else if (score >= 2.5) {
+    return { ...base, backgroundColor: '#fef3c7', color: '#92400e' };
+  } else {
+    return { ...base, backgroundColor: '#fee2e2', color: '#991b1b' };
+  }
+}
+
 const styles = {
   container: {
     minHeight: '100vh',
@@ -725,6 +894,31 @@ const styles = {
     display: 'flex',
     flexWrap: 'wrap',
     gap: '8px',
+  },
+  projectsTable: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    marginTop: '16px',
+  },
+  tableHeader: {
+    backgroundColor: '#f9fafb',
+  },
+  th: {
+    padding: '12px',
+    textAlign: 'left',
+    fontSize: '12px',
+    fontWeight: '600',
+    color: '#6b7280',
+    textTransform: 'uppercase',
+    borderBottom: '2px solid #e5e7eb',
+  },
+  tableRow: {
+    borderBottom: '1px solid #e5e7eb',
+  },
+  td: {
+    padding: '12px',
+    fontSize: '14px',
+    color: '#374151',
   },
   skillChip: {
     padding: '6px 12px',

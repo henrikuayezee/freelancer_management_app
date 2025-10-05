@@ -47,9 +47,19 @@ export async function getDashboard(req, res, next) {
         ? allRecords.reduce((sum, r) => sum + (r.overallScore || 0), 0) / allRecords.length
         : 0;
 
-    // Get active projects
+    // Get active projects (approved and active assignments only)
     const activeProjects = freelancer.projectAssignments.filter(
-      (pa) => pa.project.status === 'ACTIVE'
+      (pa) => pa.status === 'ACTIVE' && pa.project.status === 'ACTIVE'
+    );
+
+    // Get pending applications
+    const pendingApplications = freelancer.projectAssignments.filter(
+      (pa) => pa.status === 'PENDING'
+    );
+
+    // Get rejected applications
+    const rejectedApplications = freelancer.projectAssignments.filter(
+      (pa) => pa.status === 'REJECTED'
     );
 
     const dashboardData = {
@@ -57,15 +67,24 @@ export async function getDashboard(req, res, next) {
         id: freelancer.id,
         freelancerId: freelancer.freelancerId,
         firstName: freelancer.firstName,
+        middleName: freelancer.middleName,
         lastName: freelancer.lastName,
         email: freelancer.email,
         status: freelancer.status,
         currentTier: freelancer.currentTier,
         currentGrade: freelancer.currentGrade,
+        isAvailableNow: freelancer.isAvailableNow,
+        availabilityStartDate: freelancer.availabilityStartDate,
+        availabilityEndDate: freelancer.availabilityEndDate,
+        availabilityTimezone: freelancer.availabilityTimezone,
+        availabilityStartHour: freelancer.availabilityStartHour,
+        availabilityEndHour: freelancer.availabilityEndHour,
       },
       stats: {
         activeProjects: activeProjects.length,
-        totalProjects: freelancer.projectAssignments.length,
+        pendingApplications: pendingApplications.length,
+        rejectedApplications: rejectedApplications.length,
+        totalProjects: freelancer.projectAssignments.filter(pa => pa.status === 'ACTIVE').length,
         avgPerformance: avgPerformance.toFixed(2),
         totalPerformanceRecords: allRecords.length,
       },
@@ -78,6 +97,19 @@ export async function getDashboard(req, res, next) {
         endDate: pa.project.endDate,
         role: pa.role,
         assignedAt: pa.assignedAt,
+      })),
+      pendingApplications: pendingApplications.map((pa) => ({
+        id: pa.project.id,
+        name: pa.project.name,
+        status: pa.status,
+        appliedAt: pa.assignedAt,
+      })),
+      rejectedApplications: rejectedApplications.map((pa) => ({
+        id: pa.project.id,
+        name: pa.project.name,
+        status: pa.status,
+        rejectionReason: pa.completionNotes,
+        appliedAt: pa.assignedAt,
       })),
     };
 
@@ -123,7 +155,20 @@ export async function getProfile(req, res, next) {
  */
 export async function updateProfile(req, res, next) {
   try {
-    const { phone, city, country, timezone, availabilityType, hoursPerWeek } = req.body;
+    const {
+      phone,
+      city,
+      country,
+      timezone,
+      availabilityType,
+      hoursPerWeek,
+      isAvailableNow,
+      availabilityStartDate,
+      availabilityEndDate,
+      availabilityTimezone,
+      availabilityStartHour,
+      availabilityEndHour
+    } = req.body;
 
     const freelancer = await prisma.freelancer.findUnique({
       where: { userId: req.user.id },
@@ -133,16 +178,26 @@ export async function updateProfile(req, res, next) {
       return errorResponse(res, 'Freelancer profile not found', 404);
     }
 
+    const updateData = {
+      phone,
+      city,
+      country,
+      timezone,
+      availabilityType,
+      hoursPerWeek: hoursPerWeek ? parseInt(hoursPerWeek) : null,
+    };
+
+    // Add availability fields if they are provided
+    if (isAvailableNow !== undefined) updateData.isAvailableNow = isAvailableNow;
+    if (availabilityStartDate !== undefined) updateData.availabilityStartDate = availabilityStartDate ? new Date(availabilityStartDate) : null;
+    if (availabilityEndDate !== undefined) updateData.availabilityEndDate = availabilityEndDate ? new Date(availabilityEndDate) : null;
+    if (availabilityTimezone !== undefined) updateData.availabilityTimezone = availabilityTimezone;
+    if (availabilityStartHour !== undefined) updateData.availabilityStartHour = availabilityStartHour;
+    if (availabilityEndHour !== undefined) updateData.availabilityEndHour = availabilityEndHour;
+
     const updated = await prisma.freelancer.update({
       where: { id: freelancer.id },
-      data: {
-        phone,
-        city,
-        country,
-        timezone,
-        availabilityType,
-        hoursPerWeek: hoursPerWeek ? parseInt(hoursPerWeek) : null,
-      },
+      data: updateData,
     });
 
     return successResponse(res, updated, 'Profile updated successfully');

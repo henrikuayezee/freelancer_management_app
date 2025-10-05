@@ -11,6 +11,9 @@ import {
   deleteProject,
   assignFreelancerToProject,
   removeFreelancerFromProject,
+  getProjectApplications,
+  approveProjectApplication,
+  rejectProjectApplication,
 } from '../controllers/projectController.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 
@@ -70,6 +73,30 @@ router.delete(
   authenticate,
   requireRole(['ADMIN', 'PROJECT_MANAGER']),
   removeFreelancerFromProject
+);
+
+// Get project applications (PENDING assignments)
+router.get(
+  '/:id/applications',
+  authenticate,
+  requireRole(['ADMIN', 'PROJECT_MANAGER']),
+  getProjectApplications
+);
+
+// Approve project application
+router.post(
+  '/:id/applications/:freelancerId/approve',
+  authenticate,
+  requireRole(['ADMIN', 'PROJECT_MANAGER']),
+  approveProjectApplication
+);
+
+// Reject project application
+router.post(
+  '/:id/applications/:freelancerId/reject',
+  authenticate,
+  requireRole(['ADMIN', 'PROJECT_MANAGER']),
+  rejectProjectApplication
 );
 
 export default router;
