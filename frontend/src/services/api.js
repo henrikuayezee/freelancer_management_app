@@ -50,6 +50,9 @@ export const authAPI = {
   getCurrentUser: () => api.get('/api/auth/me'),
   logout: () => api.post('/api/auth/logout'),
   registerAdmin: (data) => api.post('/api/auth/register-admin', data),
+  forgotPassword: (email) => api.post('/api/auth/forgot-password', { email }),
+  resetPassword: (token, newPassword) => api.post('/api/auth/reset-password', { token, newPassword }),
+  changePassword: (currentPassword, newPassword) => api.post('/api/auth/change-password', { currentPassword, newPassword }),
 };
 
 // ====================

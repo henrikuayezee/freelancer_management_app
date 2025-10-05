@@ -64,49 +64,62 @@ export async function sendApplicationApprovedEmail({ email, firstName, temporary
     <html>
     <head>
       <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        body { font-family: 'Montserrat', Arial, sans-serif; line-height: 1.6; color: #121C27; background: #f5f5f5; }
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
-        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
-        .credentials { background: white; padding: 20px; border-left: 4px solid #667eea; margin: 20px 0; }
-        .button { display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
-        .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+        .header { background: linear-gradient(135deg, #012870 0%, #4872F5 100%); color: white; padding: 40px 30px; text-align: center; border-radius: 12px 12px 0 0; }
+        .logo { font-size: 32px; font-weight: bold; margin-bottom: 10px; }
+        .content { background: white; padding: 40px 30px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .credentials { background: #f5f5f5; padding: 25px; border-left: 4px solid #4872F5; margin: 25px 0; border-radius: 8px; }
+        .credentials code { background: white; padding: 8px 12px; border-radius: 4px; font-size: 16px; color: #012870; font-weight: bold; display: inline-block; margin-top: 5px; }
+        .warning { background: #fffbeb; border-left: 4px solid #f59e0b; padding: 20px; margin: 20px 0; border-radius: 8px; }
+        .button { display: inline-block; background: #4872F5; color: white !important; padding: 14px 32px; text-decoration: none; border-radius: 8px; margin: 25px 0; font-weight: 600; box-shadow: 0 2px 4px rgba(72, 114, 245, 0.3); }
+        .button:hover { background: #1a52f0; }
+        .footer { text-align: center; margin-top: 30px; color: #737373; font-size: 13px; }
+        h3 { color: #012870; margin-top: 30px; }
+        ul { line-height: 2; }
       </style>
     </head>
     <body>
       <div class="container">
         <div class="header">
-          <h1>🎉 Congratulations ${firstName}!</h1>
-          <p>Your application has been approved</p>
+          <div class="logo">AyaData</div>
+          <h1 style="margin: 10px 0;">🎉 Congratulations ${firstName}!</h1>
+          <p style="margin: 0;">Your application has been approved</p>
         </div>
         <div class="content">
-          <p>Welcome to the AyaData Freelancer Platform! We're excited to have you join our team.</p>
+          <p>Welcome to the AyaData Freelancer Platform! We're excited to have you join our team of data annotation professionals.</p>
 
-          <p>Your freelancer account has been created. Here are your login credentials:</p>
+          <p>Your freelancer account has been created successfully. Here are your login credentials:</p>
 
           <div class="credentials">
-            <p><strong>Email:</strong> ${email}</p>
-            <p><strong>Temporary Password:</strong> <code>${temporaryPassword}</code></p>
+            <p style="margin: 5px 0;"><strong>Email:</strong><br>${email}</p>
+            <p style="margin: 15px 0 5px 0;"><strong>Temporary Password:</strong><br><code>${temporaryPassword}</code></p>
           </div>
 
-          <p><strong>⚠️ Important:</strong> Please change your password after your first login for security purposes.</p>
+          <div class="warning">
+            <p style="margin: 0;"><strong>🔒 Security Notice:</strong> You will be required to change your password immediately upon your first login for security purposes.</p>
+          </div>
 
-          <a href="${FRONTEND_URL}/login" class="button">Login to Your Account</a>
+          <center>
+            <a href="${FRONTEND_URL}/login" class="button">Login to Your Account →</a>
+          </center>
 
           <h3>What's Next?</h3>
           <ul>
-            <li>Complete your onboarding process</li>
+            <li>Login with your temporary password</li>
+            <li>Set up your new secure password</li>
+            <li>Complete your profile information</li>
             <li>Browse available projects</li>
-            <li>Update your profile and skills</li>
-            <li>Start applying to projects that match your expertise</li>
+            <li>Start working on data annotation tasks</li>
           </ul>
 
-          <p>If you have any questions, feel free to reach out to our support team.</p>
+          <p>If you have any questions or need assistance, feel free to reach out to our support team.</p>
 
-          <p>Best regards,<br><strong>AyaData Team</strong></p>
+          <p style="margin-top: 30px;">Best regards,<br><strong>The AyaData Team</strong></p>
         </div>
         <div class="footer">
-          <p>This is an automated email. Please do not reply to this message.</p>
+          <p>This is an automated email from AyaData Freelancer Platform.</p>
+          <p>Please do not reply to this message.</p>
         </div>
       </div>
     </body>
@@ -280,9 +293,73 @@ export async function sendPerformanceReviewEmail({ email, firstName, overallScor
   return sendEmail({ to: email, subject, html });
 }
 
+/**
+ * Email Template: Password Reset
+ */
+export async function sendPasswordResetEmail({ email, firstName, resetToken }) {
+  const subject = '🔑 Password Reset Request';
+  const resetLink = `${FRONTEND_URL}/reset-password?token=${resetToken}`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: 'Montserrat', Arial, sans-serif; line-height: 1.6; color: #121C27; background: #f5f5f5; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #012870 0%, #4872F5 100%); color: white; padding: 40px 30px; text-align: center; border-radius: 12px 12px 0 0; }
+        .logo { font-size: 32px; font-weight: bold; margin-bottom: 10px; }
+        .content { background: white; padding: 40px 30px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .button { display: inline-block; background: #4872F5; color: white !important; padding: 14px 32px; text-decoration: none; border-radius: 8px; margin: 25px 0; font-weight: 600; box-shadow: 0 2px 4px rgba(72, 114, 245, 0.3); }
+        .button:hover { background: #1a52f0; }
+        .warning { background: #fee2e2; border-left: 4px solid #ef4444; padding: 20px; margin: 20px 0; border-radius: 8px; color: #991b1b; }
+        .footer { text-align: center; margin-top: 30px; color: #737373; font-size: 13px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div class="logo">AyaData</div>
+          <h1 style="margin: 10px 0;">🔑 Password Reset Request</h1>
+        </div>
+        <div class="content">
+          <p>Hi ${firstName || 'there'},</p>
+
+          <p>We received a request to reset your password for your AyaData account. If you didn't make this request, you can safely ignore this email.</p>
+
+          <p>To reset your password, click the button below:</p>
+
+          <center>
+            <a href="${resetLink}" class="button">Reset My Password →</a>
+          </center>
+
+          <p style="color: #737373; font-size: 14px;">Or copy and paste this link into your browser:<br>
+          <a href="${resetLink}" style="color: #4872F5; word-break: break-all;">${resetLink}</a></p>
+
+          <div class="warning">
+            <p style="margin: 0;"><strong>⚠️ Security Notice:</strong> This password reset link will expire in 1 hour for security reasons.</p>
+          </div>
+
+          <p>If you didn't request a password reset, please contact our support team immediately.</p>
+
+          <p style="margin-top: 30px;">Best regards,<br><strong>The AyaData Team</strong></p>
+        </div>
+        <div class="footer">
+          <p>This is an automated email from AyaData Freelancer Platform.</p>
+          <p>Please do not reply to this message.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return sendEmail({ to: email, subject, html });
+}
+
 export default {
   sendApplicationApprovedEmail,
   sendApplicationRejectedEmail,
   sendProjectAssignmentEmail,
   sendPerformanceReviewEmail,
+  sendPasswordResetEmail,
 };

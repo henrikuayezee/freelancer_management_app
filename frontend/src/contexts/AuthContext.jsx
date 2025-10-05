@@ -49,10 +49,16 @@ export function AuthProvider({ children }) {
     authAPI.logout().catch(() => {});
   };
 
+  const updateUser = (updatedUser) => {
+    setUser(updatedUser);
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+  };
+
   const value = {
     user,
     login,
     logout,
+    updateUser,
     loading,
     isAuthenticated: !!user,
     isAdmin: user?.role === 'ADMIN' || user?.role === 'PROJECT_MANAGER',

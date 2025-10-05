@@ -211,6 +211,7 @@ export async function approveApplication(req, res, next) {
           password: hashedPassword,
           role: 'FREELANCER',
           isActive: true,
+          mustChangePassword: true, // Force password change on first login
         },
       });
 

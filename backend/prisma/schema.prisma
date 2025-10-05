@@ -21,6 +21,9 @@ model User {
   password  String   // bcrypt hashed
   role      String   @default("FREELANCER") // ADMIN, PROJECT_MANAGER, TRAINING_LEAD, QA, FINANCE, FREELANCER
   isActive  Boolean  @default(true)
+  mustChangePassword Boolean @default(false) // Force password change on first login
+  resetPasswordToken String? // Token for password reset
+  resetPasswordExpires DateTime? // Expiry time for reset token
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -31,6 +34,7 @@ model User {
 
   @@index([email])
   @@index([role])
+  @@index([resetPasswordToken])
 }
 
 // UserRole values: ADMIN, PROJECT_MANAGER, TRAINING_LEAD, QA, FINANCE, FREELANCER

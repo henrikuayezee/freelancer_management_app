@@ -249,7 +249,7 @@ export default function ApplyPage() {
         </form>
 
         <div style={styles.footer}>
-          <a href="/login" style={styles.link}>Admin Login</a>
+          <a href="/" style={styles.link}>← Back to Home</a>
         </div>
       </div>
     </div>

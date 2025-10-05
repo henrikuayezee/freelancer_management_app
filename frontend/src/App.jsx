@@ -8,6 +8,8 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import ApplyPage from './pages/ApplyPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
+import ChangePasswordPage from './pages/ChangePasswordPage';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminDashboardOverview from './pages/AdminDashboardOverview';
 import FreelancersListPage from './pages/FreelancersListPage';
@@ -34,6 +36,15 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/apply" element={<ApplyPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route
+            path="/change-password"
+            element={
+              <ProtectedRoute requirePasswordChange>
+                <ChangePasswordPage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/admin"
             element={
@@ -180,7 +191,7 @@ function App() {
   );
 }
 
-function ProtectedRoute({ children, role }) {
+function ProtectedRoute({ children, role, requirePasswordChange }) {
   const { isAuthenticated, loading, user } = useAuth();
 
   if (loading) {
@@ -193,6 +204,11 @@ function ProtectedRoute({ children, role }) {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" />;
+  }
+
+  // Check if password change is required (except for change-password page)
+  if (!requirePasswordChange && user?.mustChangePassword) {
+    return <Navigate to="/change-password" />;
   }
 
   // Role-based redirect
