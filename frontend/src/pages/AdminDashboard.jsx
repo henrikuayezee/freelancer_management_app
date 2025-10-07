@@ -8,6 +8,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { applicationsAPI, freelancersAPI } from '../services/api';
 import AdminLayout from '../components/AdminLayout';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
@@ -21,6 +22,18 @@ export default function AdminDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState('submittedAt');
   const [sortOrder, setSortOrder] = useState('desc');
+
+  // Confirmation modal state
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    type: 'danger',
+    title: '',
+    message: '',
+    onConfirm: null,
+    requireInput: false,
+    inputLabel: '',
+    inputPlaceholder: '',
+  });
 
   useEffect(() => {
     loadApplications();
@@ -125,47 +138,67 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleApprove = async (id) => {
-    if (!confirm('Are you sure you want to approve this application?')) return;
-
-    try {
-      const response = await applicationsAPI.approve(id);
-      const { email, temporaryPassword, freelancerId } = response.data.data;
-      alert(`Application approved successfully!\n\nFreelancer ID: ${freelancerId}\nEmail: ${email}\nTemporary Password: ${temporaryPassword}\n\nThe freelancer can now login using the Freelancer Login tab.\n\nPlease share these credentials with the freelancer securely.`);
-      loadApplications();
-      setSelectedApplication(null);
-    } catch (error) {
-      alert('Failed to approve application: ' + error.response?.data?.message);
-    }
+  const handleApprove = (id, applicantName) => {
+    setConfirmModal({
+      isOpen: true,
+      type: 'success',
+      title: 'Approve Application',
+      message: `Are you sure you want to approve ${applicantName}'s application? This will create a freelancer account and send them their login credentials.`,
+      onConfirm: async () => {
+        try {
+          const response = await applicationsAPI.approve(id);
+          const { email, temporaryPassword, freelancerId } = response.data.data;
+          alert(`Application approved successfully!\n\nFreelancer ID: ${freelancerId}\nEmail: ${email}\nTemporary Password: ${temporaryPassword}\n\nThe freelancer can now login using the Freelancer Login tab.\n\nPlease share these credentials with the freelancer securely.`);
+          loadApplications();
+          setSelectedApplication(null);
+        } catch (error) {
+          alert('Failed to approve application: ' + error.response?.data?.message);
+        }
+      },
+      requireInput: false,
+    });
   };
 
-  const handleReject = async (id) => {
-    const reason = prompt('Enter rejection reason:');
-    if (!reason) return;
-
-    try {
-      await applicationsAPI.reject(id, reason);
-      alert('Application rejected');
-      loadApplications();
-      setSelectedApplication(null);
-    } catch (error) {
-      alert('Failed to reject application');
-    }
+  const handleReject = (id, applicantName) => {
+    setConfirmModal({
+      isOpen: true,
+      type: 'warning',
+      title: 'Reject Application',
+      message: `Are you sure you want to reject ${applicantName}'s application? They will be notified of this decision.`,
+      onConfirm: async (reason) => {
+        try {
+          await applicationsAPI.reject(id, reason || 'Application did not meet requirements');
+          alert('Application rejected');
+          loadApplications();
+          setSelectedApplication(null);
+        } catch (error) {
+          alert('Failed to reject application: ' + (error.response?.data?.message || error.message));
+        }
+      },
+      requireInput: true,
+      inputLabel: 'Reason for Rejection (required)',
+      inputPlaceholder: 'Please provide a reason for rejecting this application...',
+    });
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this application? This will allow the email to apply again.')) {
-      return;
-    }
-
-    try {
-      const response = await applicationsAPI.delete(id);
-      alert(response.data.message);
-      loadApplications();
-      setSelectedApplication(null);
-    } catch (error) {
-      alert('Failed to delete application: ' + error.response?.data?.message);
-    }
+  const handleDelete = (id, applicantName, email) => {
+    setConfirmModal({
+      isOpen: true,
+      type: 'danger',
+      title: 'Delete Application',
+      message: `Are you sure you want to permanently delete ${applicantName}'s application? This will allow ${email} to apply again. This action cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          const response = await applicationsAPI.delete(id);
+          alert(response.data.message);
+          loadApplications();
+          setSelectedApplication(null);
+        } catch (error) {
+          alert('Failed to delete application: ' + error.response?.data?.message);
+        }
+      },
+      requireInput: false,
+    });
   };
 
   // Filter and sort applications
@@ -291,6 +324,20 @@ export default function AdminDashboard() {
           />
         )}
       </div>
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.type === 'success' ? 'Approve' : confirmModal.type === 'warning' ? 'Reject' : 'Delete'}
+        type={confirmModal.type}
+        requireInput={confirmModal.requireInput}
+        inputLabel={confirmModal.inputLabel}
+        inputPlaceholder={confirmModal.inputPlaceholder}
+      />
     </AdminLayout>
   );
 }
@@ -376,10 +423,10 @@ function ApplicationsTab({
           <div style={styles.actions}>
             {app.status === 'PENDING' ? (
               <>
-                <button onClick={() => onApprove(app.id)} style={styles.approveButton}>
+                <button onClick={() => onApprove(app.id, `${app.firstName} ${app.lastName}`)} style={styles.approveButton}>
                   ✓ Approve Application
                 </button>
-                <button onClick={() => onReject(app.id)} style={styles.rejectButton}>
+                <button onClick={() => onReject(app.id, `${app.firstName} ${app.lastName}`)} style={styles.rejectButton}>
                   ✗ Reject Application
                 </button>
               </>
@@ -389,7 +436,7 @@ function ApplicationsTab({
                   Status: <strong>{app.status}</strong>
                   {app.reviewedAt && ` (${new Date(app.reviewedAt).toLocaleDateString()})`}
                 </div>
-                <button onClick={() => onDelete(app.id)} style={styles.deleteButton}>
+                <button onClick={() => onDelete(app.id, `${app.firstName} ${app.lastName}`, app.email)} style={styles.deleteButton}>
                   🗑 Delete Application
                 </button>
               </>

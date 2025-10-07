@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { paymentsAPI, freelancersAPI } from '../services/api';
 import AdminLayout from '../components/AdminLayout';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 export default function AdminPayments() {
   const [searchParams] = useSearchParams();
@@ -21,6 +22,18 @@ export default function AdminPayments() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [expandedPayment, setExpandedPayment] = useState(null);
+
+  // Confirmation modal state
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    type: 'danger',
+    title: '',
+    message: '',
+    onConfirm: null,
+    requireInput: false,
+    inputLabel: '',
+    inputPlaceholder: '',
+  });
 
   useEffect(() => {
     setFilter(prev => ({ ...prev, status: statusFilter }));
@@ -49,53 +62,77 @@ export default function AdminPayments() {
     }
   };
 
-  const handleApprove = async (paymentId) => {
-    if (!confirm('Are you sure you want to approve this payment?')) return;
-
-    try {
-      await paymentsAPI.update(paymentId, { status: 'APPROVED' });
-      alert('Payment approved successfully');
-      loadData();
-    } catch (error) {
-      console.error('Failed to approve payment:', error);
-      alert('Failed to approve payment: ' + (error.response?.data?.message || error.message));
-    }
+  const handleApprove = (paymentId, freelancerName, amount) => {
+    setConfirmModal({
+      isOpen: true,
+      type: 'success',
+      title: 'Approve Payment',
+      message: `Are you sure you want to approve payment of $${amount.toFixed(2)} for ${freelancerName}? This will move the payment to approved status.`,
+      onConfirm: async () => {
+        try {
+          await paymentsAPI.update(paymentId, { status: 'APPROVED' });
+          alert('Payment approved successfully');
+          loadData();
+        } catch (error) {
+          console.error('Failed to approve payment:', error);
+          alert('Failed to approve payment: ' + (error.response?.data?.message || error.message));
+        }
+      },
+      requireInput: false,
+    });
   };
 
-  const handleMarkPaid = async (payment) => {
-    setSelectedPayment(payment);
-    const method = prompt('Enter payment method (BANK_TRANSFER, MOBILE_MONEY, PAYPAL):');
-    if (!method) return;
+  const handleMarkPaid = (payment, freelancerName) => {
+    setConfirmModal({
+      isOpen: true,
+      type: 'info',
+      title: 'Mark Payment as Paid',
+      message: `Are you sure you want to mark payment of $${payment.totalAmount.toFixed(2)} to ${freelancerName} as paid? Please provide payment details.`,
+      onConfirm: async (paymentDetails) => {
+        // For now, we'll use prompt for method and reference since we need two inputs
+        // In future, could create a custom modal with multiple inputs
+        const method = prompt('Enter payment method (BANK_TRANSFER, MOBILE_MONEY, PAYPAL):');
+        if (!method) return;
 
-    const reference = prompt('Enter reference number:');
-    if (!reference) return;
+        const reference = prompt('Enter reference number:');
+        if (!reference) return;
 
-    try {
-      await paymentsAPI.update(payment.id, {
-        status: 'PAID',
-        paymentMethod: method,
-        referenceNumber: reference,
-        paidAt: new Date().toISOString(),
-      });
-      alert('Payment marked as paid successfully');
-      loadData();
-    } catch (error) {
-      console.error('Failed to mark payment as paid:', error);
-      alert('Failed to update payment: ' + (error.response?.data?.message || error.message));
-    }
+        try {
+          await paymentsAPI.update(payment.id, {
+            status: 'PAID',
+            paymentMethod: method,
+            referenceNumber: reference,
+            paidAt: new Date().toISOString(),
+          });
+          alert('Payment marked as paid successfully');
+          loadData();
+        } catch (error) {
+          console.error('Failed to mark payment as paid:', error);
+          alert('Failed to update payment: ' + (error.response?.data?.message || error.message));
+        }
+      },
+      requireInput: false,
+    });
   };
 
-  const handleDelete = async (paymentId) => {
-    if (!confirm('Are you sure you want to delete this payment record?')) return;
-
-    try {
-      await paymentsAPI.delete(paymentId);
-      alert('Payment deleted successfully');
-      loadData();
-    } catch (error) {
-      console.error('Failed to delete payment:', error);
-      alert('Failed to delete payment: ' + (error.response?.data?.message || error.message));
-    }
+  const handleDelete = (paymentId, freelancerName, amount) => {
+    setConfirmModal({
+      isOpen: true,
+      type: 'danger',
+      title: 'Delete Payment Record',
+      message: `Are you sure you want to permanently delete the payment record of $${amount.toFixed(2)} for ${freelancerName}? This action cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          await paymentsAPI.delete(paymentId);
+          alert('Payment deleted successfully');
+          loadData();
+        } catch (error) {
+          console.error('Failed to delete payment:', error);
+          alert('Failed to delete payment: ' + (error.response?.data?.message || error.message));
+        }
+      },
+      requireInput: false,
+    });
   };
 
   const getStatusBadgeStyle = (status) => {
@@ -411,7 +448,11 @@ export default function AdminPayments() {
                   <div style={styles.actionsSection}>
                     {payment.status === 'PENDING' && (
                       <button
-                        onClick={() => handleApprove(payment.id)}
+                        onClick={() => handleApprove(
+                          payment.id,
+                          `${payment.freelancer.firstName} ${payment.freelancer.lastName}`,
+                          payment.totalAmount
+                        )}
                         style={styles.approveButton}
                       >
                         ✓ Approve
@@ -419,7 +460,10 @@ export default function AdminPayments() {
                     )}
                     {payment.status === 'APPROVED' && (
                       <button
-                        onClick={() => handleMarkPaid(payment)}
+                        onClick={() => handleMarkPaid(
+                          payment,
+                          `${payment.freelancer.firstName} ${payment.freelancer.lastName}`
+                        )}
                         style={styles.paidButton}
                       >
                         💰 Mark as Paid
@@ -427,7 +471,11 @@ export default function AdminPayments() {
                     )}
                     {payment.status !== 'PAID' && (
                       <button
-                        onClick={() => handleDelete(payment.id)}
+                        onClick={() => handleDelete(
+                          payment.id,
+                          `${payment.freelancer.firstName} ${payment.freelancer.lastName}`,
+                          payment.totalAmount
+                        )}
                         style={styles.deleteButton}
                       >
                         🗑 Delete
@@ -458,6 +506,20 @@ export default function AdminPayments() {
           onSuccess={loadData}
         />
       )}
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.type === 'success' ? 'Approve' : confirmModal.type === 'info' ? 'Confirm' : 'Delete'}
+        type={confirmModal.type}
+        requireInput={confirmModal.requireInput}
+        inputLabel={confirmModal.inputLabel}
+        inputPlaceholder={confirmModal.inputPlaceholder}
+      />
     </div>
     </AdminLayout>
   );

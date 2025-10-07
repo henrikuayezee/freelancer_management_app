@@ -10,6 +10,7 @@ import { colors, typography, spacing, borderRadius, shadows } from '../styles/de
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
@@ -27,6 +28,18 @@ export default function UsersPage() {
   });
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState('');
+
+  // Confirmation modal state
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    type: 'danger',
+    title: '',
+    message: '',
+    onConfirm: null,
+    requireInput: false,
+    inputLabel: '',
+    inputPlaceholder: '',
+  });
 
   useEffect(() => {
     loadData();
@@ -79,50 +92,82 @@ export default function UsersPage() {
     }
   };
 
-  const handleRoleChange = async (userId, newRole) => {
-    if (!confirm(`Change user role to ${newRole}?`)) return;
-
-    try {
-      await usersAPI.updateRole(userId, { role: newRole });
-      alert('Role updated successfully!');
-      loadData();
-    } catch (error) {
-      alert('Failed to update role: ' + (error.response?.data?.message || error.message));
-    }
+  const handleRoleChange = (userId, newRole, userName, currentRole) => {
+    setConfirmModal({
+      isOpen: true,
+      type: 'warning',
+      title: 'Change User Role',
+      message: `Are you sure you want to change ${userName}'s role from ${currentRole} to ${newRole}? This will affect their access permissions.`,
+      onConfirm: async () => {
+        try {
+          await usersAPI.updateRole(userId, { role: newRole });
+          alert('Role updated successfully!');
+          loadData();
+        } catch (error) {
+          alert('Failed to update role: ' + (error.response?.data?.message || error.message));
+        }
+      },
+      requireInput: false,
+    });
   };
 
-  const handleToggleActive = async (userId) => {
-    try {
-      await usersAPI.toggleActive(userId);
-      alert('User status updated successfully!');
-      loadData();
-    } catch (error) {
-      alert('Failed to update status: ' + (error.response?.data?.message || error.message));
-    }
+  const handleToggleActive = (userId, userName, isActive) => {
+    setConfirmModal({
+      isOpen: true,
+      type: 'warning',
+      title: isActive ? 'Deactivate User' : 'Activate User',
+      message: isActive
+        ? `Are you sure you want to deactivate ${userName}? They will no longer be able to access the system.`
+        : `Are you sure you want to activate ${userName}? They will be able to access the system again.`,
+      onConfirm: async () => {
+        try {
+          await usersAPI.toggleActive(userId);
+          alert('User status updated successfully!');
+          loadData();
+        } catch (error) {
+          alert('Failed to update status: ' + (error.response?.data?.message || error.message));
+        }
+      },
+      requireInput: false,
+    });
   };
 
-  const handleDelete = async (userId) => {
-    if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
-
-    try {
-      await usersAPI.delete(userId);
-      alert('User deleted successfully!');
-      loadData();
-    } catch (error) {
-      alert('Failed to delete user: ' + (error.response?.data?.message || error.message));
-    }
+  const handleDelete = (userId, userName, userEmail) => {
+    setConfirmModal({
+      isOpen: true,
+      type: 'danger',
+      title: 'Delete User',
+      message: `Are you sure you want to permanently delete ${userName} (${userEmail})? This will remove all their data and cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          await usersAPI.delete(userId);
+          alert('User deleted successfully!');
+          loadData();
+        } catch (error) {
+          alert('Failed to delete user: ' + (error.response?.data?.message || error.message));
+        }
+      },
+      requireInput: false,
+    });
   };
 
-  const handleResetPassword = async (userId) => {
-    if (!confirm('Generate a new password for this user?')) return;
-
-    try {
-      const response = await usersAPI.resetPassword(userId, {});
-      const { email, temporaryPassword } = response.data.data;
-      alert(`Password reset successfully!\n\nEmail: ${email}\nTemporary Password: ${temporaryPassword}\n\nPlease share this with the user securely.`);
-    } catch (error) {
-      alert('Failed to reset password: ' + (error.response?.data?.message || error.message));
-    }
+  const handleResetPassword = (userId, userName) => {
+    setConfirmModal({
+      isOpen: true,
+      type: 'info',
+      title: 'Reset Password',
+      message: `Are you sure you want to generate a new password for ${userName}? Their current password will no longer work.`,
+      onConfirm: async () => {
+        try {
+          const response = await usersAPI.resetPassword(userId, {});
+          const { email, temporaryPassword } = response.data.data;
+          alert(`Password reset successfully!\n\nEmail: ${email}\nTemporary Password: ${temporaryPassword}\n\nPlease share this with the user securely.`);
+        } catch (error) {
+          alert('Failed to reset password: ' + (error.response?.data?.message || error.message));
+        }
+      },
+      requireInput: false,
+    });
   };
 
   if (loading) {
@@ -210,15 +255,18 @@ export default function UsersPage() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((user) => (
+                {users.map((user) => {
+                  const userName = user.freelancer
+                    ? `${user.freelancer.firstName}${user.freelancer.middleName ? ' ' + user.freelancer.middleName : ''} ${user.freelancer.lastName}`
+                    : user.adminProfile
+                    ? `${user.adminProfile.firstName} ${user.adminProfile.lastName}`
+                    : 'N/A';
+
+                  return (
                   <tr key={user.id} style={styles.tableRow}>
                     <td style={styles.td}>{user.email}</td>
                     <td style={styles.td}>
-                      {user.freelancer
-                        ? `${user.freelancer.firstName}${user.freelancer.middleName ? ' ' + user.freelancer.middleName : ''} ${user.freelancer.lastName}`
-                        : user.adminProfile
-                        ? `${user.adminProfile.firstName} ${user.adminProfile.lastName}`
-                        : 'N/A'}
+                      {userName}
                       {user.freelancer && (
                         <div style={styles.freelancerId}>{user.freelancer.freelancerId}</div>
                       )}
@@ -226,7 +274,11 @@ export default function UsersPage() {
                     <td style={styles.td}>
                       <select
                         value={user.role}
-                        onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                        onChange={(e) => {
+                          if (e.target.value !== user.role) {
+                            handleRoleChange(user.id, e.target.value, userName, user.role);
+                          }
+                        }}
                         style={styles.roleSelect}
                       >
                         <option value="ADMIN">Admin</option>
@@ -246,21 +298,21 @@ export default function UsersPage() {
                     <td style={styles.td}>
                       <div style={styles.actions}>
                         <button
-                          onClick={() => handleToggleActive(user.id)}
+                          onClick={() => handleToggleActive(user.id, userName, user.isActive)}
                           style={styles.actionButton}
                           title={user.isActive ? 'Deactivate' : 'Activate'}
                         >
                           {user.isActive ? '🔒' : '🔓'}
                         </button>
                         <button
-                          onClick={() => handleResetPassword(user.id)}
+                          onClick={() => handleResetPassword(user.id, userName)}
                           style={styles.actionButton}
                           title="Reset Password"
                         >
                           🔑
                         </button>
                         <button
-                          onClick={() => handleDelete(user.id)}
+                          onClick={() => handleDelete(user.id, userName, user.email)}
                           style={styles.deleteButton}
                           title="Delete User"
                         >
@@ -269,7 +321,8 @@ export default function UsersPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
 
@@ -379,6 +432,20 @@ export default function UsersPage() {
           </div>
         </div>
       )}
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.type === 'danger' ? 'Delete' : confirmModal.type === 'warning' ? 'Confirm' : 'Reset'}
+        type={confirmModal.type}
+        requireInput={confirmModal.requireInput}
+        inputLabel={confirmModal.inputLabel}
+        inputPlaceholder={confirmModal.inputPlaceholder}
+      />
     </AdminLayout>
   );
 }

@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { projectsAPI, freelancersAPI } from '../services/api';
 import AdminLayout from '../components/AdminLayout';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 export default function ProjectDetailPage() {
   const { id } = useParams();
@@ -17,6 +18,18 @@ export default function ProjectDetailPage() {
   const [editing, setEditing] = useState(false);
   const [editFormData, setEditFormData] = useState({});
   const [applications, setApplications] = useState([]);
+
+  // Confirmation modal states
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    type: 'danger',
+    title: '',
+    message: '',
+    onConfirm: null,
+    requireInput: false,
+    inputLabel: '',
+    inputPlaceholder: '',
+  });
 
   useEffect(() => {
     loadProject();
@@ -42,16 +55,23 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const handleRemoveFreelancer = async (freelancerId) => {
-    if (!confirm('Are you sure you want to remove this freelancer from the project?')) return;
-
-    try {
-      await projectsAPI.removeFreelancer(id, freelancerId);
-      alert('Freelancer removed successfully');
-      loadProject();
-    } catch (error) {
-      alert('Failed to remove freelancer');
-    }
+  const handleRemoveFreelancer = (freelancerId, freelancerName) => {
+    setConfirmModal({
+      isOpen: true,
+      type: 'danger',
+      title: 'Remove Freelancer',
+      message: `Are you sure you want to remove ${freelancerName} from this project? This action cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          await projectsAPI.removeFreelancer(id, freelancerId);
+          alert('Freelancer removed successfully');
+          loadProject();
+        } catch (error) {
+          alert('Failed to remove freelancer: ' + (error.response?.data?.message || error.message));
+        }
+      },
+      requireInput: false,
+    });
   };
 
   const handleUpdateProject = async () => {
@@ -74,31 +94,46 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const handleApproveApplication = async (freelancerId) => {
-    if (!confirm('Are you sure you want to approve this application?')) return;
-
-    try {
-      await projectsAPI.approveApplication(id, freelancerId, {});
-      alert('Application approved successfully!');
-      loadProject();
-      loadApplications();
-    } catch (error) {
-      alert('Failed to approve application: ' + (error.response?.data?.message || error.message));
-    }
+  const handleApproveApplication = (freelancerId, freelancerName) => {
+    setConfirmModal({
+      isOpen: true,
+      type: 'success',
+      title: 'Approve Application',
+      message: `Are you sure you want to approve ${freelancerName}'s application? They will be notified and added to this project.`,
+      onConfirm: async () => {
+        try {
+          await projectsAPI.approveApplication(id, freelancerId, {});
+          alert('Application approved successfully!');
+          loadProject();
+          loadApplications();
+        } catch (error) {
+          alert('Failed to approve application: ' + (error.response?.data?.message || error.message));
+        }
+      },
+      requireInput: false,
+    });
   };
 
-  const handleRejectApplication = async (freelancerId) => {
-    const reason = prompt('Please provide a reason for rejection (optional):');
-    if (reason === null) return; // User cancelled
-
-    try {
-      await projectsAPI.rejectApplication(id, freelancerId, { reason });
-      alert('Application rejected');
-      loadProject();
-      loadApplications();
-    } catch (error) {
-      alert('Failed to reject application: ' + (error.response?.data?.message || error.message));
-    }
+  const handleRejectApplication = (freelancerId, freelancerName) => {
+    setConfirmModal({
+      isOpen: true,
+      type: 'warning',
+      title: 'Reject Application',
+      message: `Are you sure you want to reject ${freelancerName}'s application? They will be notified of this decision.`,
+      onConfirm: async (reason) => {
+        try {
+          await projectsAPI.rejectApplication(id, freelancerId, { reason: reason || 'Application not approved' });
+          alert('Application rejected');
+          loadProject();
+          loadApplications();
+        } catch (error) {
+          alert('Failed to reject application: ' + (error.response?.data?.message || error.message));
+        }
+      },
+      requireInput: true,
+      inputLabel: 'Reason for Rejection (optional)',
+      inputPlaceholder: 'Please provide a reason for rejecting this application...',
+    });
   };
 
   if (loading) {
@@ -296,13 +331,19 @@ export default function ProjectDetailPage() {
                     <td style={styles.td}>
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <button
-                          onClick={() => handleApproveApplication(application.freelancer.id)}
+                          onClick={() => handleApproveApplication(
+                            application.freelancer.id,
+                            `${application.freelancer.firstName} ${application.freelancer.lastName}`
+                          )}
                           style={styles.approveButton}
                         >
                           Approve
                         </button>
                         <button
-                          onClick={() => handleRejectApplication(application.freelancer.id)}
+                          onClick={() => handleRejectApplication(
+                            application.freelancer.id,
+                            `${application.freelancer.firstName} ${application.freelancer.lastName}`
+                          )}
                           style={styles.rejectButton}
                         >
                           Reject
@@ -368,7 +409,10 @@ export default function ProjectDetailPage() {
                     </td>
                     <td style={styles.td}>
                       <button
-                        onClick={() => handleRemoveFreelancer(assignment.freelancer.id)}
+                        onClick={() => handleRemoveFreelancer(
+                          assignment.freelancer.id,
+                          `${assignment.freelancer.firstName} ${assignment.freelancer.lastName}`
+                        )}
                         style={styles.removeButton}
                       >
                         Remove
@@ -393,6 +437,20 @@ export default function ProjectDetailPage() {
           }}
         />
       )}
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.type === 'success' ? 'Approve' : confirmModal.type === 'warning' ? 'Reject' : 'Confirm'}
+        type={confirmModal.type}
+        requireInput={confirmModal.requireInput}
+        inputLabel={confirmModal.inputLabel}
+        inputPlaceholder={confirmModal.inputPlaceholder}
+      />
     </AdminLayout>
   );
 }
